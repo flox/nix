@@ -97,6 +97,7 @@ nix_tests = \
   nix-profile.sh \
   suggestions.sh \
   store-ping.sh \
+  build-explicit-output.sh \
   fetchClosure.sh
 
 ifeq ($(HAVE_LIBCPUID), 1)

@@ -408,6 +408,26 @@ struct InstallableStorePath : Installable
     }
 };
 
+struct InstallableIndexedStorePath : Installable
+{
+    ref<Store> store;
+    DerivedPath::Built req;
+
+    InstallableIndexedStorePath(ref<Store> store, DerivedPath::Built && req)
+        : store(store), req(std::move(req))
+    { }
+
+    std::string what() const override
+    {
+        return req.to_string(*store);
+    }
+
+    DerivedPaths toDerivedPaths() override
+    {
+        return { req };
+    }
+};
+
 DerivedPaths InstallableValue::toDerivedPaths()
 {
     DerivedPaths res;
@@ -714,6 +734,19 @@ std::vector<std::shared_ptr<Installable>> SourceExprCommand::parseInstallables(
 
         for (auto & s : ss) {
             std::exception_ptr ex;
+
+            if (s.rfind('!') != std::string::npos) {
+                try {
+                    result.push_back(std::make_shared<InstallableIndexedStorePath>(
+                        store,
+                        DerivedPath::Built::parse(*store, s)));
+                    continue;
+                } catch (BadStorePath &) {
+                } catch (...) {
+                    if (!ex)
+                        ex = std::current_exception();
+                }
+            }
 
             if (s.find('/') != std::string::npos) {
                 try {
