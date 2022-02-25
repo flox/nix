@@ -30,6 +30,13 @@ struct ProfileElementSource
             std::pair(originalRef.to_string(), attrPath) <
             std::pair(other.originalRef.to_string(), other.attrPath);
     }
+
+    bool operator == (const ProfileElementSource & other) const
+    {
+        return
+            std::pair(originalRef.to_string(), attrPath) ==
+            std::pair(other.originalRef.to_string(), other.attrPath);
+    }
 };
 
 struct ProfileElement
@@ -61,11 +68,16 @@ struct ProfileElement
     {
         return std::tuple(describe(), storePaths) < std::tuple(other.describe(), other.storePaths);
     }
+
+    bool operator == (const ProfileElement & other) const
+    {
+        return std::tuple(describe(), storePaths) == std::tuple(other.describe(), other.storePaths);
+    }
 };
 
 struct ProfileManifest
 {
-    std::vector<ProfileElement> elements;
+    std::set<ProfileElement> elements;
 
     ProfileManifest() { }
 
@@ -92,7 +104,7 @@ struct ProfileManifest
                         e["attrPath"]
                     };
                 }
-                elements.emplace_back(std::move(element));
+                elements.emplace(std::move(element));
             }
         }
 
@@ -106,7 +118,7 @@ struct ProfileManifest
             for (auto & drvInfo : drvInfos) {
                 ProfileElement element;
                 element.storePaths = {state.store->parseStorePath(drvInfo.queryOutPath())};
-                elements.emplace_back(std::move(element));
+                elements.emplace(std::move(element));
             }
         }
     }
@@ -176,10 +188,7 @@ struct ProfileManifest
     static void printDiff(const ProfileManifest & prev, const ProfileManifest & cur, std::string_view indent)
     {
         auto prevElems = prev.elements;
-        std::sort(prevElems.begin(), prevElems.end());
-
         auto curElems = cur.elements;
-        std::sort(curElems.begin(), curElems.end());
 
         auto i = prevElems.begin();
         auto j = curElems.begin();
@@ -250,7 +259,10 @@ struct CmdProfileInstall : InstallablesCommand, MixDefaultProfile
 
                 pathsToBuild.push_back(DerivedPath::Built{drv.drvPath, StringSet{drv.outputName}});
 
-                manifest.elements.emplace_back(std::move(element));
+                if (get<1>(manifest.elements.emplace(element)) == false){
+                    notice("Duplicate profile element ignored: %s",element.describe());
+                }
+
             } else {
                 auto buildables = build(getEvalStore(), store, Realise::Outputs, {installable}, bmNormal);
 
@@ -273,7 +285,9 @@ struct CmdProfileInstall : InstallablesCommand, MixDefaultProfile
                         },
                     }, buildable.raw());
 
-                    manifest.elements.emplace_back(std::move(element));
+                    if (get<1>(manifest.elements.emplace(element)) == false){
+                        notice("Duplicate profile element ignored: %s",element.describe());
+                    }
                 }
             }
         }
@@ -357,13 +371,14 @@ struct CmdProfileRemove : virtual EvalCommand, MixDefaultProfile, MixProfileElem
 
         ProfileManifest newManifest;
 
-        for (size_t i = 0; i < oldManifest.elements.size(); ++i) {
-            auto & element(oldManifest.elements[i]);
+        size_t i = 0;
+        for (auto & element : oldManifest.elements) {
             if (!matches(*store, element, i, matchers)) {
-                newManifest.elements.push_back(std::move(element));
+                newManifest.elements.insert(std::move(element));
             } else {
                 notice("removing '%s'", element.describe());
             }
+            i++;
         }
 
         auto removedCount = oldManifest.elements.size() - newManifest.elements.size();
@@ -412,8 +427,9 @@ struct CmdProfileUpgrade : virtual SourceExprCommand, MixDefaultProfile, MixProf
 
         auto upgradedCount = 0;
 
-        for (size_t i = 0; i < manifest.elements.size(); ++i) {
-            auto & element(manifest.elements[i]);
+        ProfileManifest newManifest;
+        size_t i = 0;
+        for (auto & element : manifest.elements) {
             if (element.source
                 && !element.source->originalRef.input.isLocked()
                 && matches(*store, element, i, matchers))
@@ -441,15 +457,22 @@ struct CmdProfileUpgrade : virtual SourceExprCommand, MixDefaultProfile, MixProf
 
                 if (!drv.outPath)
                     throw UnimplementedError("CA derivations are not yet supported by 'nix profile'");
-                element.storePaths = {*drv.outPath}; // FIXME
-                element.source = ProfileElementSource{
+                ProfileElement newElement;
+                newElement.storePaths = {*drv.outPath}; // FIXME
+                newElement.source = ProfileElementSource{
                     installable.flakeRef,
                     resolvedRef,
                     attrPath,
                 };
+                newElement.active = element.active;
+                if (get<1>(newManifest.elements.insert(element)) == false){
+                    notice("Duplicate profile element ignored: %s",newElement.describe());
+                }
+
 
                 pathsToBuild.push_back(DerivedPath::Built{drv.drvPath, {drv.outputName}});
             }
+            i++;
         }
 
         if (upgradedCount == 0) {
@@ -489,12 +512,13 @@ struct CmdProfileList : virtual EvalCommand, virtual StoreCommand, MixDefaultPro
     {
         ProfileManifest manifest(*getEvalState(), *profile);
 
-        for (size_t i = 0; i < manifest.elements.size(); ++i) {
-            auto & element(manifest.elements[i]);
+        size_t i = 0;
+        for (auto & element : manifest.elements) {
             logger->cout("%d %s %s %s", i,
                 element.source ? element.source->originalRef.to_string() + "#" + element.source->attrPath : "-",
                 element.source ? element.source->resolvedRef.to_string() + "#" + element.source->attrPath : "-",
                 concatStringsSep(" ", store->printStorePathSet(element.storePaths)));
+            i++;
         }
     }
 };
