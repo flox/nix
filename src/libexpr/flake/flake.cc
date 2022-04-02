@@ -707,7 +707,10 @@ void callFlake(EvalState & state,
 static void prim_getFlake(EvalState & state, const Pos & pos, Value * * args, Value & v)
 {
     std::string flakeRefS(state.forceStringNoCtx(*args[0], pos));
-    auto flakeRef = parseFlakeRef(flakeRefS, {}, true);
+    std::optional<Path> baseDir = {};
+    if (hasPrefix(flakeRefS,"./"))
+        baseDir = absPath(".");
+    auto flakeRef = parseFlakeRef(flakeRefS, baseDir, true);
     if (evalSettings.pureEval && !flakeRef.input.isLocked())
         throw Error("cannot call 'getFlake' on unlocked flake reference '%s', at %s (use --impure to override)", flakeRefS, pos);
 

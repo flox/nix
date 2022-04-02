@@ -175,8 +175,10 @@ std::pair<FlakeRef, std::string> parseFlakeRefWithFragment(
                         if (pathExists(flakeRoot + "/.git/shallow"))
                             parsedURL.query.insert_or_assign("shallow", "1");
 
+                        auto input = Input::fromURL(parsedURL);
+                        input.locked = true;
                         return std::make_pair(
-                            FlakeRef(Input::fromURL(parsedURL), get(parsedURL.query, "dir").value_or("")),
+                            FlakeRef(std::move(input), get(parsedURL.query, "dir").value_or("")),
                             fragment);
                     }
 
