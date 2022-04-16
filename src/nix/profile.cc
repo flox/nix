@@ -275,7 +275,7 @@ struct ProfileManifest
     }
 };
 
-struct CmdProfileImport : EvalCommand, MixDefaultProfile
+struct CmdProfileImport : InstallablesCommand, MixDefaultProfile
 {
     std::optional<std::string> manifestPath;
 
@@ -306,6 +306,24 @@ struct CmdProfileImport : EvalCommand, MixDefaultProfile
         // Use alternate ProfileManifest version overridden to accept
         // manifestPath directly rather than profile path.
         ProfileManifest manifest(*getEvalState(), *manifestPath, true);
+
+        for (size_t i = 0; i < manifest.elements.size(); ++i) {
+            auto & element(manifest.elements[i]);
+            if (element.source
+                && !element.source->originalRef.input.isLocked())
+            {
+                auto installable = std::make_shared<InstallableFlake>(
+                    this,
+                    getEvalState(),
+                    FlakeRef(element.source->originalRef),
+                    "",
+                    Strings{element.source->attrPath},
+                    Strings{},
+                    lockFlags);
+
+                element.updateStorePaths(getEvalStore(), store, *installable);
+            }
+        }
 
         updateProfile(manifest.build(store));
     }
