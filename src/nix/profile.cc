@@ -132,6 +132,46 @@ struct ProfileManifest
         }
     }
 
+    // Alternate ProfileManifest version overridden to accept
+    // manifestPath directly rather than profile path. FIXME
+    ProfileManifest(EvalState & state, const Path & manifestPath, const bool foobar)
+    {
+        if (pathExists(manifestPath)) {
+            auto json = nlohmann::json::parse(readFile(manifestPath));
+
+            auto version = json.value("version", 0);
+            std::string sUrl;
+            std::string sOriginalUrl;
+            switch(version){
+                case 1:
+                    sUrl = "uri";
+                    sOriginalUrl = "originalUri";
+                    break;
+                case 2:
+                    sUrl = "url";
+                    sOriginalUrl = "originalUrl";
+                    break;
+                default:
+                    throw Error("profile manifest '%s' has unsupported version %d", manifestPath, version);
+            }
+
+            for (auto & e : json["elements"]) {
+                ProfileElement element;
+                for (auto & p : e["storePaths"])
+                    element.storePaths.insert(state.store->parseStorePath((std::string) p));
+                element.active = e["active"];
+                if (e.value(sUrl,"") != "") {
+                    element.source = ProfileElementSource{
+                        parseFlakeRef(e[sOriginalUrl]),
+                        parseFlakeRef(e[sUrl]),
+                        e["attrPath"]
+                    };
+                }
+                elements.emplace_back(std::move(element));
+            }
+        }
+    }
+
     std::string toJSON(Store & store) const
     {
         auto array = nlohmann::json::array();
@@ -232,6 +272,42 @@ struct ProfileManifest
 
         if (!changes)
             std::cout << fmt("%sNo changes.\n", indent);
+    }
+};
+
+struct CmdProfileImport : EvalCommand, MixDefaultProfile
+{
+    std::optional<std::string> manifestPath;
+
+    CmdProfileImport()
+    {
+        addFlag({
+            .longName = "from-manifest",
+            .description = "Path to manifest file to import.",
+            .labels = {"path/to/manifest.json"},
+            .handler = {&manifestPath},
+        });
+    }
+
+    std::string description() override
+    {
+        return "import profile generation from manifest";
+    }
+
+    std::string doc() override
+    {
+        return
+          #include "profile-import.md"
+          ;
+    }
+
+    void run(ref<Store> store) override
+    {
+        // Use alternate ProfileManifest version overridden to accept
+        // manifestPath directly rather than profile path.
+        ProfileManifest manifest(*getEvalState(), *manifestPath, true);
+
+        updateProfile(manifest.build(store));
     }
 };
 
@@ -650,6 +726,7 @@ struct CmdProfile : NixMultiCommand
 {
     CmdProfile()
         : MultiCommand({
+              {"import", []() { return make_ref<CmdProfileImport>(); }},
               {"install", []() { return make_ref<CmdProfileInstall>(); }},
               {"remove", []() { return make_ref<CmdProfileRemove>(); }},
               {"upgrade", []() { return make_ref<CmdProfileUpgrade>(); }},
