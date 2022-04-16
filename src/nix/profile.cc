@@ -236,7 +236,7 @@ struct ProfileManifest
     }
 };
 
-struct CmdProfileImport : InstallablesCommand, MixDefaultProfile
+struct CmdProfileImport : InstallablesCommandNoArgs, MixDefaultProfile
 {
     std::optional<std::string> manifestPath;
 
