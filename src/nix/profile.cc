@@ -90,9 +90,10 @@ struct ProfileManifest
 
     ProfileManifest() { }
 
-    ProfileManifest(EvalState & state, const Path & profile)
+    ProfileManifest(EvalState & state, const Path & manifestPath)
     {
-        auto manifestPath = profile + "/manifest.json";
+        auto profilePath = baseNameOf(manifestPath);
+        const Path profile = profilePath.data();
 
         if (pathExists(manifestPath)) {
             auto json = nlohmann::json::parse(readFile(manifestPath));
@@ -127,46 +128,6 @@ struct ProfileManifest
             for (auto & drvInfo : drvInfos) {
                 ProfileElement element;
                 element.storePaths = {drvInfo.queryOutPath()};
-                elements.emplace_back(std::move(element));
-            }
-        }
-    }
-
-    // Alternate ProfileManifest version overridden to accept
-    // manifestPath directly rather than profile path. FIXME
-    ProfileManifest(EvalState & state, const Path & manifestPath, const bool foobar)
-    {
-        if (pathExists(manifestPath)) {
-            auto json = nlohmann::json::parse(readFile(manifestPath));
-
-            auto version = json.value("version", 0);
-            std::string sUrl;
-            std::string sOriginalUrl;
-            switch(version){
-                case 1:
-                    sUrl = "uri";
-                    sOriginalUrl = "originalUri";
-                    break;
-                case 2:
-                    sUrl = "url";
-                    sOriginalUrl = "originalUrl";
-                    break;
-                default:
-                    throw Error("profile manifest '%s' has unsupported version %d", manifestPath, version);
-            }
-
-            for (auto & e : json["elements"]) {
-                ProfileElement element;
-                for (auto & p : e["storePaths"])
-                    element.storePaths.insert(state.store->parseStorePath((std::string) p));
-                element.active = e["active"];
-                if (e.value(sUrl,"") != "") {
-                    element.source = ProfileElementSource{
-                        parseFlakeRef(e[sOriginalUrl]),
-                        parseFlakeRef(e[sUrl]),
-                        e["attrPath"]
-                    };
-                }
                 elements.emplace_back(std::move(element));
             }
         }
@@ -305,7 +266,7 @@ struct CmdProfileImport : InstallablesCommand, MixDefaultProfile
     {
         // Use alternate ProfileManifest version overridden to accept
         // manifestPath directly rather than profile path.
-        ProfileManifest manifest(*getEvalState(), *manifestPath, true);
+        ProfileManifest manifest(*getEvalState(), *manifestPath);
 
         for (size_t i = 0; i < manifest.elements.size(); ++i) {
             auto & element(manifest.elements[i]);
@@ -345,7 +306,7 @@ struct CmdProfileInstall : InstallablesCommand, MixDefaultProfile
 
     void run(ref<Store> store) override
     {
-        ProfileManifest manifest(*getEvalState(), *profile);
+        ProfileManifest manifest(*getEvalState(), *profile + "/manifest.json");
 
         auto builtPaths = Installable::build(getEvalStore(), store, Realise::Outputs, installables, bmNormal);
 
@@ -438,7 +399,7 @@ struct CmdProfileRemove : virtual EvalCommand, MixDefaultProfile, MixProfileElem
 
     void run(ref<Store> store) override
     {
-        ProfileManifest oldManifest(*getEvalState(), *profile);
+        ProfileManifest oldManifest(*getEvalState(), *profile + "/manifest.json");
 
         auto matchers = getMatchers(store);
 
@@ -490,7 +451,7 @@ struct CmdProfileUpgrade : virtual SourceExprCommand, MixDefaultProfile, MixProf
 
     void run(ref<Store> store) override
     {
-        ProfileManifest manifest(*getEvalState(), *profile);
+        ProfileManifest manifest(*getEvalState(), *profile + "/manifest.json");
 
         auto matchers = getMatchers(store);
 
@@ -578,7 +539,7 @@ struct CmdProfileList : virtual EvalCommand, virtual StoreCommand, MixDefaultPro
 
     void run(ref<Store> store) override
     {
-        ProfileManifest manifest(*getEvalState(), *profile);
+        ProfileManifest manifest(*getEvalState(), *profile + "/manifest.json");
 
         for (size_t i = 0; i < manifest.elements.size(); ++i) {
             auto & element(manifest.elements[i]);
@@ -649,7 +610,7 @@ struct CmdProfileHistory : virtual StoreCommand, EvalCommand, MixDefaultProfile
         bool first = true;
 
         for (auto & gen : gens) {
-            ProfileManifest manifest(*getEvalState(), gen.path);
+            ProfileManifest manifest(*getEvalState(), gen.path + "/manifest.json");
 
             if (!first) std::cout << "\n";
             first = false;
