@@ -123,24 +123,6 @@ private:
     std::vector<std::string> _installables;
 };
 
-/* Like InstallablesCommand but expects no command line arguments. */
-struct InstallablesCommandNoArgs : virtual Args, SourceExprCommand
-{
-    std::vector<std::shared_ptr<Installable>> installables;
-
-    InstallablesCommandNoArgs();
-
-    void prepare() override;
-
-    virtual bool useDefaultInstallables() { return false; }
-
-    std::optional<FlakeRef> getFlakeRefForCompletion() override;
-
-private:
-
-    std::vector<std::string> _installables;
-};
-
 /* A command that operates on exactly one "installable" */
 struct InstallableCommand : virtual Args, SourceExprCommand
 {
@@ -158,25 +140,6 @@ struct InstallableCommand : virtual Args, SourceExprCommand
 private:
 
     std::string _installable{"."};
-};
-
-/* Like InstallableCommand but expects no command line arguments. */
-struct InstallableCommandNoArgs : virtual Args, SourceExprCommand
-{
-    std::shared_ptr<Installable> installable;
-
-    InstallableCommandNoArgs();
-
-    void prepare() override;
-
-    std::optional<FlakeRef> getFlakeRefForCompletion() override
-    {
-        return parseFlakeRef(_installable, absPath("."));
-    }
-
-private:
-
-    std::string _installable;
 };
 
 /* A command that operates on zero or more store paths. */

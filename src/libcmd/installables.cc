@@ -942,22 +942,4 @@ void InstallableCommand::prepare()
     installable = parseInstallable(getStore(), _installable);
 }
 
-InstallablesCommandNoArgs::InstallablesCommandNoArgs() {}
-
-void InstallablesCommandNoArgs::prepare()
-{
-    installables = parseInstallables(getStore(), _installables);
-}
-
-std::optional<FlakeRef> InstallablesCommandNoArgs::getFlakeRefForCompletion()
-{
-    if (_installables.empty())
-        return {};
-    return parseFlakeRef(_installables.front(), absPath("."));
-}
-
-InstallableCommandNoArgs::InstallableCommandNoArgs() {}
-
-void InstallableCommandNoArgs::prepare() {}
-
 }

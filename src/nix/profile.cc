@@ -236,17 +236,16 @@ struct ProfileManifest
     }
 };
 
-struct CmdProfileImport : InstallablesCommandNoArgs, MixDefaultProfile
+struct CmdProfileImport : SourceExprCommand, MixDefaultProfile
 {
-    std::optional<std::string> manifestPath;
+    Path manifestPath;
 
     CmdProfileImport()
     {
-        addFlag({
-            .longName = "from-manifest",
-            .description = "Path to manifest file to import.",
-            .labels = {"path/to/manifest.json"},
-            .handler = {&manifestPath},
+        expectArgs({
+	    .label = "path/to/manifest.json",
+	    .handler = {&manifestPath},
+            .completer = completePath
         });
     }
 
@@ -266,7 +265,7 @@ struct CmdProfileImport : InstallablesCommandNoArgs, MixDefaultProfile
     {
         // Use alternate ProfileManifest version overridden to accept
         // manifestPath directly rather than profile path.
-        ProfileManifest manifest(*getEvalState(), *manifestPath);
+        ProfileManifest manifest(*getEvalState(), manifestPath);
 
         for (size_t i = 0; i < manifest.elements.size(); ++i) {
             auto & element(manifest.elements[i]);
