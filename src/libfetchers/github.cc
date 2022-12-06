@@ -157,18 +157,26 @@ struct GitArchiveInputScheme : InputScheme
         return input;
     }
 
-    std::optional<std::string> getAccessToken(const std::string & host) const
+    std::optional<std::string> getAccessToken(const std::string & host, const std::string & url) const
     {
         auto tokens = fetchSettings.accessTokens.get();
+        std::string answer;
+        if(! url.empty())
+            for ( auto & token : tokens) {
+                if (token.first.find(url) != std::string::npos) {
+                    answer = token.second;
+                }
+            }
+        if (!answer.empty()) return answer;
         if (auto token = get(tokens, host))
             return *token;
         return {};
     }
 
-    Headers makeHeadersWithAuthTokens(const std::string & host) const
+    Headers makeHeadersWithAuthTokens(const std::string & host,const std::string & url) const
     {
         Headers headers;
-        auto accessToken = getAccessToken(host);
+        auto accessToken = getAccessToken(host,url);
         if (accessToken) {
             auto hdr = accessHeaderFromToken(*accessToken);
             if (hdr)
@@ -243,13 +251,18 @@ struct GitHubInputScheme : GitArchiveInputScheme
     Hash getRevFromRef(nix::ref<Store> store, const Input & input) const override
     {
         auto host = maybeGetStrAttr(input.attrs, "host").value_or("github.com");
+        Headers headersPre = makeHeadersWithAuthTokens(host, "");
+        auto urlGen = fmt(
+            host == "github.com"
+            ? "api.%s/repos/%s/%s/commits/%s"
+            : "%s/api/v3/repos/%s/%s/commits/%s",
+            host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"), *input.getRef());
+        Headers headers = makeHeadersWithAuthTokens(host, urlGen);
         auto url = fmt(
             host == "github.com"
             ? "https://api.%s/repos/%s/%s/commits/%s"
             : "https://%s/api/v3/repos/%s/%s/commits/%s",
             host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"), *input.getRef());
-
-        Headers headers = makeHeadersWithAuthTokens(host);
 
         auto json = nlohmann::json::parse(
             readFile(
@@ -263,7 +276,12 @@ struct GitHubInputScheme : GitArchiveInputScheme
     DownloadUrl getDownloadUrl(const Input & input) const override
     {
         auto host = maybeGetStrAttr(input.attrs, "host").value_or("github.com");
-        Headers headers = makeHeadersWithAuthTokens(host);
+        auto urlGen = fmt(
+            host == "github.com"
+            ? "api.%s/repos/%s/%s/commits/%s"
+            : "%s/api/v3/repos/%s/%s/commits/%s",
+            host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"), *input.getRef());
+        Headers headers = makeHeadersWithAuthTokens(host, urlGen);
         // If we have no auth headers then we default to the public archive
         // urls so we do not run into rate limits.
         const auto urlFmt =
@@ -319,7 +337,7 @@ struct GitLabInputScheme : GitArchiveInputScheme
         auto url = fmt("https://%s/api/v4/projects/%s%%2F%s/repository/commits?ref_name=%s",
             host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"), *input.getRef());
 
-        Headers headers = makeHeadersWithAuthTokens(host);
+        Headers headers = makeHeadersWithAuthTokens(host, url);
 
         auto json = nlohmann::json::parse(
             readFile(
@@ -342,7 +360,7 @@ struct GitLabInputScheme : GitArchiveInputScheme
             host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"),
             input.getRev()->to_string(Base16, false));
 
-        Headers headers = makeHeadersWithAuthTokens(host);
+        Headers headers = makeHeadersWithAuthTokens(host, url);
         return DownloadUrl { url, headers };
     }
 
@@ -382,7 +400,7 @@ struct SourceHutInputScheme : GitArchiveInputScheme
         auto base_url = fmt("https://%s/%s/%s",
             host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"));
 
-        Headers headers = makeHeadersWithAuthTokens(host);
+        Headers headers = makeHeadersWithAuthTokens(host, base_url);
 
         std::string refUri;
         if (ref == "HEAD") {
@@ -429,7 +447,7 @@ struct SourceHutInputScheme : GitArchiveInputScheme
             host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"),
             input.getRev()->to_string(Base16, false));
 
-        Headers headers = makeHeadersWithAuthTokens(host);
+        Headers headers = makeHeadersWithAuthTokens(host,url);
         return DownloadUrl { url, headers };
     }
 
