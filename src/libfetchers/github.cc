@@ -258,8 +258,8 @@ struct GitHubInputScheme : GitArchiveInputScheme
             host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"), *input.getRef());
 
         auto urlGen = fmt(
-            "%s/%s/%s/%s",
-            host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"), *input.getRef());
+            "%s/%s/%s",
+            host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"));
         Headers headers = makeHeadersWithAuthTokens(host, urlGen);
 
         auto json = nlohmann::json::parse(
@@ -284,8 +284,8 @@ struct GitHubInputScheme : GitArchiveInputScheme
             input.getRev()->to_string(Base16, false));
 
         auto urlGen = fmt(
-            "%s/%s/%s/%s",
-            host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"), *input.getRef());
+            "%s/%s/%s",
+            host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"));
         Headers headers = makeHeadersWithAuthTokens(host, urlGen);
         return DownloadUrl { url, headers };
     }
@@ -331,8 +331,8 @@ struct GitLabInputScheme : GitArchiveInputScheme
             host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"), *input.getRef());
 
         auto urlGen = fmt(
-            "%s/%s/%s/%s",
-            host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"), *input.getRef());
+            "%s/%s/%s",
+            host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"));
         Headers headers = makeHeadersWithAuthTokens(host, urlGen);
 
         auto json = nlohmann::json::parse(
@@ -357,8 +357,8 @@ struct GitLabInputScheme : GitArchiveInputScheme
             input.getRev()->to_string(Base16, false));
 
         auto urlGen = fmt(
-            "%s/%s/%s/%s",
-            host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"), *input.getRef());
+            "%s/%s/%s",
+            host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"));
         Headers headers = makeHeadersWithAuthTokens(host, urlGen);
         return DownloadUrl { url, headers };
     }
@@ -400,8 +400,8 @@ struct SourceHutInputScheme : GitArchiveInputScheme
             host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"));
 
         auto urlGen = fmt(
-            "%s/%s/%s/%s",
-            host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"), *input.getRef());
+            "%s/%s/%s",
+            host, getStrAttr(input.attrs, "owner"), getStrAttr(input.attrs, "repo"));
         Headers headers = makeHeadersWithAuthTokens(host, urlGen);
 
         std::string refUri;
