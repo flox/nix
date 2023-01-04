@@ -41,6 +41,24 @@ cat > $flake1Dir/flake.nix <<EOF
     a8 = builtins.storePath $dep;
 
     a9 = "$dep";
+
+    a10 = {outPath = builtins.storePath "$dep";};
+
+    a11 = {type="derivation"; out.outPath = builtins.storePath "$dep";};
+
+    a12 = {
+        type="derivation";
+        outputs = ["out" "man"];
+        out.outPath = ./foo;
+        man.outPath = ./foo;
+    };
+
+    a13 = {
+        type="derivation";
+        outputs = ["out" "man"];
+        out.outPath = builtins.storePath "$dep";
+        man.outPath = builtins.storePath "$dep";
+    };
   };
 }
 EOF
@@ -64,3 +82,15 @@ nix build --impure --json --out-link $TEST_ROOT/result $flake1Dir#a8
 diff common.sh $TEST_ROOT/result
 
 (! nix build --impure --json --out-link $TEST_ROOT/result $flake1Dir#a9)
+
+nix build --impure --json --out-link $TEST_ROOT/result $flake1Dir#a10
+nix build --impure --json --out-link $TEST_ROOT/result $flake1Dir#a11
+nix build --impure --json --out-link $TEST_ROOT/result $flake1Dir#a12
+[[ $(cat $TEST_ROOT/result) = bar ]]
+[[ $(cat $TEST_ROOT/result-1) = bar ]]
+rm "$TEST_ROOT"/result
+rm "$TEST_ROOT"/result-1
+
+nix build --impure --json --out-link $TEST_ROOT/result $flake1Dir#a13
+[[ -e $TEST_ROOT/result ]]
+[[ -e $TEST_ROOT/result-1 ]]

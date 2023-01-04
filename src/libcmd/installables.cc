@@ -611,10 +611,12 @@ DerivedPathsWithInfo InstallableFlake::toDerivedPaths()
     auto attrPath = attr->getAttrPathStr();
 
     if (!attr->isDerivation()) {
+        auto v = attr->forceValue();
+        if (v.type() == nAttrs && attr->maybeGetAttr("outPath")){
+            v = attr->getAttr("outPath")->forceValue();
+        }
 
         // FIXME: use eval cache?
-        auto v = attr->forceValue();
-
         if (v.type() == nPath) {
             PathSet context;
             auto storePath = state->copyPathToStore(context, Path(v.path));
@@ -642,8 +644,6 @@ DerivedPathsWithInfo InstallableFlake::toDerivedPaths()
         else
             throw Error("flake output attribute '%s' is not a derivation or path", attrPath);
     }
-
-    auto drvPath = attr->forceDerivation();
 
     std::set<std::string> outputsToInstall;
     std::optional<NixInt> priority;
@@ -676,19 +676,62 @@ DerivedPathsWithInfo InstallableFlake::toDerivedPaths()
     if (auto outputNames = std::get_if<OutputNames>(&outputsSpec))
         outputsToInstall = *outputNames;
 
-    return {{
-        .path = DerivedPath::Built {
-            .drvPath = std::move(drvPath),
-            .outputs = std::move(outputsToInstall),
-        },
-        .info = {
-            .priority = priority,
-            .originalRef = flakeRef,
-            .resolvedRef = getLockedFlake()->flake.lockedRef,
-            .attrPath = attrPath,
-            .outputsSpec = outputsSpec,
-        }
-    }};
+    // Check to see if the derivation has a drvPath
+    if (attr->maybeGetAttr("drvPath")) {
+        auto drvPath = attr->forceDerivation();
+        return {{
+            .path = DerivedPath::Built {
+                .drvPath = std::move(drvPath),
+                .outputs = std::move(outputsToInstall),
+            },
+            .info = {
+                .priority = priority,
+                .originalRef = flakeRef,
+                .resolvedRef = getLockedFlake()->flake.lockedRef,
+                .attrPath = attrPath,
+                .outputsSpec = outputsSpec,
+            }
+        }};
+    }
+
+    // Derivation has no drvPath, but has outputs
+    // encode this as mutiple opaque paths
+    DerivedPathsWithInfo result;
+    attr->forceValue();
+    for (auto i : outputsToInstall) {
+        auto v2 = attr->getAttr(i);
+        auto v = v2->getAttr("outPath")->forceValue();
+        nix::StorePath storePath = [&] {
+            if (v.type() == nPath) {
+                PathSet context;
+                return state->copyPathToStore(context, Path(v.path));
+            }
+
+            else if (v.type() == nString) {
+                PathSet context;
+                auto s = state->forceString(v, context);
+                auto storePathM = state->store->maybeParseStorePath(s);
+                if (storePathM && context.count(std::string(s))) {
+                    return std::move(*storePathM);
+                }
+            }
+            throw Error("outputs for %s are ill-formed: %s",i,v.type());
+        }();
+        result.push_back(
+        {
+            .path = DerivedPath::Opaque {
+                .path = std::move(storePath),
+            },
+            .info = {
+                .priority = priority,
+                .originalRef = flakeRef,
+                .resolvedRef = getLockedFlake()->flake.lockedRef,
+                .attrPath = attrPath,
+                .outputsSpec = outputsSpec,
+            }
+        });
+    }
+    return result;
 }
 
 std::pair<Value *, PosIdx> InstallableFlake::toValue(EvalState & state)
