@@ -382,6 +382,30 @@ AttrKey AttrCursor::getKey()
 
 Value & AttrCursor::getValue()
 {
+    if (root->db) {
+        if (!cachedValue)
+            cachedValue = root->db->getAttr(getKey());
+        if (cachedValue && !std::get_if<placeholder_t>(&cachedValue->second)) {
+            if (auto s = std::get_if<string_t>(&cachedValue->second)) {
+                debug("using cached string attribute '%s'", getAttrPathStr());
+                auto v = root->state.allocValue();
+                v->mkString(s->first);
+                return *v;
+            }
+            else if (auto s = std::get_if<bool>(&cachedValue->second)) {
+                debug("using cached bool attribute '%s'", getAttrPathStr());
+                auto v = root->state.allocValue();
+                v->mkBool(*s);
+                return *v;
+            }
+            else if (auto s = std::get_if<int_t>(&cachedValue->second)) {
+                debug("using cached int attribute '%s'", getAttrPathStr());
+                auto v = root->state.allocValue();
+                v->mkInt(s->x);
+                return *v;
+            }
+        }
+    }
     if (!_value) {
         if (parent) {
             auto & vParent = parent->first->getValue();
