@@ -548,8 +548,18 @@ std::vector<std::string> InstallableFlake::getActualAttrPaths()
 {
     std::vector<std::string> res;
 
-    if (attrPaths.size() == 1 && attrPaths.front().rfind(".",0) == 0){
-        attrPaths.front().replace(0,1,"");
+    // check whether attrPath starts with `.` or `"".`
+    // `"".` may occur if the attributes of an attrpath are escaped
+    std::optional<std::string> exact = {};
+    if (attrPaths.size() == 1) {
+        if (attrPaths.front().compare(0, 1, ".") == 0)
+            exact.emplace(".");
+
+        if (attrPaths.front().compare(0, 3, "\"\".") == 0)
+            exact.emplace("\"\".");
+    }
+
+    if (exact.has_value()) {
         for (auto & s : attrPaths)
             res.push_back(s);
         return res;
