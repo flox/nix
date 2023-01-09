@@ -544,22 +544,28 @@ std::vector<InstallableValue::DerivationInfo> InstallableAttrPath::toDerivations
     return res;
 }
 
-std::vector<std::string> InstallableFlake::getActualAttrPaths()
+std::vector<std::vector<nix::Symbol>> InstallableFlake::getActualAttrPaths(EvalState &state)
 {
-    std::vector<std::string> res;
+    std::vector<std::vector<nix::Symbol>> res;
 
-    if (attrPaths.size() == 1 && attrPaths.front().rfind(".",0) == 0){
-        attrPaths.front().replace(0,1,"");
-        for (auto & s : attrPaths)
-            res.push_back(s);
-        return res;
+    // check whether attrPath starts with `.` or `"".`
+    // `"".` may occur if the attributes of an attrpath are escaped
+    if (attrPaths.size() == 1)
+    {
+        std::vector<nix::Symbol> attrPath = parseAttrPath(state, attrPaths.front());
+        if (attrPath.size() > 0 && state.symbols.resolve(attrPath).front() == "")
+        {
+            attrPath.erase(attrPath.begin());
+            res.push_back(attrPath);
+            return res;
+        }
     }
 
     for (auto & prefix : prefixes)
-        res.push_back(prefix + *attrPaths.begin());
+        res.push_back(parseAttrPath(state, prefix + *attrPaths.begin()));
 
     for (auto & s : attrPaths)
-        res.push_back(s);
+        res.push_back(parseAttrPath(state, s));
 
     return res;
 }
@@ -607,12 +613,23 @@ ref<eval_cache::EvalCache> openEvalCache(
         });
 }
 
-static std::string showAttrPaths(const std::vector<std::string> & paths)
+static std::string showAttrPaths(const std::vector<std::vector<nix::Symbol>> & paths, const nix::SymbolTable & symbolTable)
 {
     std::string s;
     for (const auto & [n, i] : enumerate(paths)) {
-        if (n > 0) s += n + 1 == paths.size() ? " or " : ", ";
-        s += '\''; s += i; s += '\'';
+        auto string_symbols = symbolTable.resolve(i);
+
+        std::string path;
+        for (const auto &[n, i] : enumerate(string_symbols))
+        {
+            path += i;
+            if (n < string_symbols.size() -1)
+                path += ".";
+        }
+
+        if (n > 0)
+            s += n + 1 == paths.size() ? " or " : ", ";
+        s += '\''; s += path; s += '\'';
     }
     return s;
 }
@@ -712,8 +729,8 @@ InstallableFlake::getCursors(EvalState & state)
 
     std::vector<ref<eval_cache::AttrCursor>> res;
 
-    for (auto & attrPath : getActualAttrPaths()) {
-        auto attr = root->findAlongAttrPath(parseAttrPath(state, attrPath));
+    for (auto & attrPath : getActualAttrPaths(state)) {
+        auto attr = root->findAlongAttrPath(attrPath);
         if (attr) res.push_back(ref(*attr));
     }
 
@@ -727,17 +744,24 @@ ref<eval_cache::AttrCursor> InstallableFlake::getCursor(EvalState & state)
     auto cache = openEvalCache(state, lockedFlake);
     auto root = cache->getRoot();
 
+
     Suggestions suggestions;
 
-    auto attrPaths = getActualAttrPaths();
+    auto attrPaths = getActualAttrPaths(state);
 
     for (auto & attrPath : attrPaths) {
-        debug("trying flake output attribute '%s'", attrPath);
 
-        auto attrOrSuggestions = root->findAlongAttrPath(
-            parseAttrPath(state, attrPath),
-            true
-        );
+        std::string attrPathS;
+        for (const auto & [ n, symbol ] : enumerate(state.symbols.resolve(attrPath)))
+        {
+            attrPathS += symbol;
+            if (n < attrPath.size() -1)
+                attrPathS += ".";
+        }
+
+        debug("trying flake output attribute '%s'", attrPathS);
+
+        auto attrOrSuggestions = root->findAlongAttrPath(attrPath, true);
 
         if (!attrOrSuggestions) {
             suggestions += attrOrSuggestions.getSuggestions();
@@ -751,7 +775,7 @@ ref<eval_cache::AttrCursor> InstallableFlake::getCursor(EvalState & state)
         suggestions,
         "flake '%s' does not provide attribute %s",
         flakeRef,
-        showAttrPaths(attrPaths));
+        showAttrPaths(attrPaths, state.symbols));
 }
 
 std::shared_ptr<flake::LockedFlake> InstallableFlake::getLockedFlake() const
