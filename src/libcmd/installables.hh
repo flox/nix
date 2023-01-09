@@ -182,7 +182,7 @@ struct InstallableFlake : InstallableValue
 
     std::string what() const override { return flakeRef.to_string() + "#" + *attrPaths.begin(); }
 
-    std::vector<std::string> getActualAttrPaths();
+    std::vector<std::vector<nix::Symbol>> getActualAttrPaths(EvalState & state);
 
     Value * getFlakeOutputs(EvalState & state, const flake::LockedFlake & lockedFlake);
 
