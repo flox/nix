@@ -475,6 +475,7 @@ EvalState::EvalState(
     , sLine(symbols.create("line"))
     , sColumn(symbols.create("column"))
     , sFunctor(symbols.create("__functor"))
+    , sGetter(symbols.create("__getter"))
     , sToString(symbols.create("__toString"))
     , sRight(symbols.create("right"))
     , sWrong(symbols.create("wrong"))
@@ -1353,7 +1354,28 @@ void ExprSelect::eval(EvalState & state, Env & env, Value & v)
                 }
             } else {
                 state.forceAttrs(*vAttrs, pos, "while selecting an attribute");
-                if ((j = vAttrs->attrs->find(name)) == vAttrs->attrs->end()) {
+                j = vAttrs->attrs->find(state.sGetter);
+                if(j != vAttrs->attrs->end()){
+                    warn("not def");
+                    Value * vInp = state.allocValue();
+                    vInp->mkString(state.symbols[name]);
+                    Value * args[] = {vInp};
+                    Value *vCur = state.allocValue();
+                    pos2 = j->pos;
+
+                    try {
+                        warn("call with %s",vInp->type());
+                        state.callFunction(*j->value, 1, args, *vCur, pos2);
+                        vAttrs = vCur;
+                        pos2 = j->pos;
+                        if (state.countCalls) state.attrSelects[pos2]++;
+                        continue;
+
+                    } catch (Error & e) {
+                        e.addTrace(state.positions[pos], "while calling a getter (an attribute set with a '__getter' attribute)");
+                        throw;
+                    }
+                } else if ((j = vAttrs->attrs->find(name)) == vAttrs->attrs->end()) {
                     std::set<std::string> allAttrNames;
                     for (auto & attr : *vAttrs->attrs)
                         allAttrNames.insert(state.symbols[attr.name]);
