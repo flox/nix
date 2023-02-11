@@ -476,6 +476,7 @@ EvalState::EvalState(
     , sColumn(symbols.create("column"))
     , sFunctor(symbols.create("__functor"))
     , sGetter(symbols.create("__getter"))
+    , sAttrNames(symbols.create("__attrNames"))
     , sToString(symbols.create("__toString"))
     , sRight(symbols.create("right"))
     , sWrong(symbols.create("wrong"))
@@ -1356,15 +1357,36 @@ void ExprSelect::eval(EvalState & state, Env & env, Value & v)
                 state.forceAttrs(*vAttrs, pos, "while selecting an attribute");
                 j = vAttrs->attrs->find(state.sGetter);
                 if(j != vAttrs->attrs->end()){
-                    warn("not def");
                     Value * vInp = state.allocValue();
                     vInp->mkString(state.symbols[name]);
+                    Bindings::iterator attrNames;
+                    if ( (attrNames = vAttrs->attrs->find(state.sAttrNames)) != vAttrs->attrs->end()){
+                        state.forceValue(*attrNames->value, attrNames->pos);
+                        // TODO: check if list of strings
+                        bool found = false;
+                        for (size_t n = 0; n < attrNames->value->listSize(); ++n){
+                            if (state.eqValues(*attrNames->value->listElems()[n],*vInp, j->pos,"")) {found=true; break;}
+                        }
+                        warn("list size: %d", attrNames->value->listSize());
+                        if (!found){
+                            std::set<std::string> allAttrNames;
+                            PathSet set = {};
+                            for (size_t n = 0; n < attrNames->value->listSize(); ++n){
+                                auto part = state.coerceToString(j->pos, *attrNames->value->listElems()[n], set,"error forcing",
+                                        false,false,false).toOwned();
+                                warn("inserting %s", part);
+                                allAttrNames.insert(part);
+                            }
+                            auto suggestions = Suggestions::bestMatches(allAttrNames, state.symbols[name]);
+                            state.error("attribute '%1%' missing from __attrNames", state.symbols[name])
+                                .atPos(attrNames->pos).withSuggestions(suggestions).withFrame(env, *this).debugThrow<EvalError>();
+                        }
+                    }
                     Value * args[] = {vInp};
                     Value *vCur = state.allocValue();
                     pos2 = j->pos;
 
                     try {
-                        warn("call with %s",vInp->type());
                         state.callFunction(*j->value, 1, args, *vCur, pos2);
                         vAttrs = vCur;
                         pos2 = j->pos;
@@ -1416,12 +1438,45 @@ void ExprOpHasAttr::eval(EvalState & state, Env & env, Value & v)
     for (auto & i : attrPath) {
         state.forceValue(*vAttrs, noPos);
         Bindings::iterator j;
+        Bindings::iterator getter;
         auto name = getName(i, state, env);
+
+        getter = vAttrs->attrs->find(state.sGetter);
         if (vAttrs->type() != nAttrs ||
-            (j = vAttrs->attrs->find(name)) == vAttrs->attrs->end())
+            (((j = vAttrs->attrs->find(name)) == vAttrs->attrs->end())
+             && ( getter == vAttrs->attrs->end())))
         {
             v.mkBool(false);
             return;
+        } else if (getter && getter != vAttrs->attrs->end()) {
+            j = getter;
+            Bindings::iterator attrNames;
+            Value * vInp = state.allocValue();
+            vInp->mkString(state.symbols[name]);
+            if ( (attrNames = vAttrs->attrs->find(state.sAttrNames)) != vAttrs->attrs->end()){
+                state.forceValue(*attrNames->value, attrNames->pos);
+                // TODO: check if list of strings, return as value.
+                for (size_t n = 0; n < attrNames->value->listSize(); ++n){
+                    if (state.eqValues(*attrNames->value->listElems()[n],*vInp, getter->pos,"")) return v.mkBool(true);
+                }
+                v.mkBool(false);
+                return;
+            }
+            Value * args[] = {vInp};
+            Value *vCur = state.allocValue();
+
+            PosIdx pos2 = j->pos;
+            try {
+                state.callFunction(*j->value, 1, args, *vCur, pos2);
+                vAttrs = vCur;
+// if (state.countCalls) state.attrSelects[pos2]++;
+                continue;
+
+            } catch (Error & e) {
+// e.addTrace(state.positions[pos2], "while calling a getter (an attribute set with a '__getter' attribute)");
+                throw;
+            }
+
         } else {
             vAttrs = j->value;
         }
