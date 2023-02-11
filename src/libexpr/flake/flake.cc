@@ -782,6 +782,48 @@ static RegisterPrimOp r2({
     .experimentalFeature = Xp::Flakes,
 });
 
+static void prim_lockFlake(EvalState & state, const PosIdx pos, Value * * args, Value & v)
+{
+    std::string flakeRefS(state.forceStringNoCtx(*args[0], pos, "while evaluating the argument passed to builtins.lockFlake"));
+    auto flakeRef = parseFlakeRef(flakeRefS, {}, true);
+    if (evalSettings.pureEval && !flakeRef.input.isLocked())
+        throw Error("cannot call 'getFlake' on unlocked flake reference '%s', at %s (use --impure to override)", flakeRefS, state.positions[pos]);
+
+    auto lockedFlake = lockFlake(state, flakeRef,
+            LockFlags {
+                .updateLockFile = false,
+                .writeLockFile = false,
+                .useRegistries = !evalSettings.pureEval && fetchSettings.useRegistries,
+                .allowUnlocked = !evalSettings.pureEval,
+            });
+    v.mkString(lockedFlake.lockFile.to_string());
+}
+
+static RegisterPrimOp r3({
+    .name =  "__lockFlake",
+    .args = {"args"},
+    .doc = R"(
+      Fetch a flake from a flake reference, and return its lock. For example:
+
+      ```nix
+      builtins.lockFlake "nix/55bc52401966fbffa525c574c14f67b00bc4fb3a"
+      ```
+
+      Unless impure evaluation is allowed (`--impure`), the flake reference
+      must be "locked", e.g. contain a Git revision or content hash. An
+      example of an unlocked usage is:
+
+      ```nix
+      builtins.lockFlake "github:edolstra/dwarffs"
+      ```
+
+      This function is only available if you enable the experimental feature
+      `flakes`.
+    )",
+    .fun = prim_lockFlake,
+    .experimentalFeature = Xp::Flakes,
+});
+
 }
 
 Fingerprint LockedFlake::getFingerprint() const
