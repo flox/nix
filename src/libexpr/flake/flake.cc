@@ -7,6 +7,8 @@
 #include "fetchers.hh"
 #include "finally.hh"
 #include "fetch-settings.hh"
+#include <filesystem>
+namespace fs = std::filesystem;
 
 namespace nix {
 
@@ -211,7 +213,7 @@ static Flake getFlake(
         .originalRef = originalRef,
         .resolvedRef = resolvedRef,
         .lockedRef = lockedRef,
-        .sourceInfo = std::make_shared<fetchers::Tree>(std::move(sourceInfo))
+        .sourceInfo = std::make_shared<fetchers::Tree>(sourceInfo)
     };
 
     if (!pathExists(flakeFile))
@@ -231,6 +233,52 @@ static Flake getFlake(
 
     if (auto inputs = vInfo.attrs->get(sInputs))
         flake.inputs = parseFlakeInputs(state, inputs->value, inputs->pos, flakeDir, lockRootPath);
+
+    // Now do this again, for every sub-flake.nix in the source
+    // Implements "bubble-up" behavior
+    Value vInfo2;
+    /* warn("flake original: %s",originalRef); */
+    /* warn("flake resolved: %s",resolvedRef); */
+    /* warn("flake locked: %s",lockedRef); */
+
+    for (auto &p : fs::recursive_directory_iterator(
+               canonPath(flakeDir))) {
+        if (p.path().parent_path() == flakeDir){
+            continue;
+        }
+        if (p.path().filename() == "crystal.nix"){
+            warn("found %s",p.path().string());
+            state.evalFile(p.path(), vInfo2, true); // FIXME: symlink attack
+
+            expectType(state, nAttrs, vInfo2, state.positions.add({p.path()}, 1, 1));
+            warn("found crystal in %s",p.path().parent_path().filename().string());
+            /* flake.inputs[p.path().parent_path().filename().string()] = */
+/* FlakeInput */
+/* { */
+    /* .isFlake = true, */
+    /* .ref = FlakeRef::fromAttrs({{"type", "indirect"}, {"id", inputName}}); */
+    /* /1* ref = FlakeRef { *1/ */
+    /* /1*     input = *1/ */
+    /* /1*     subdir = p.path().parent_path().filename(), *1/ */
+    /* /1* }, *1/ */
+/* }; */
+
+            if (auto inputs = vInfo2.attrs->get(sInputs)) {
+                auto subInputs = parseFlakeInputs(state, inputs->value, inputs->pos, p.path(), lockRootPath );
+                for (auto sub : subInputs) {
+                    warn("sub %s: %s",sub.first,sub.second.ref->to_string());
+                    if (flake.inputs.count(sub.first) != 0 ){
+                        throw Error("flake contains duplicate %s inputs",sub.first);
+                    }
+                    flake.inputs[sub.first] = std::move(sub.second);
+                    // append to flake.inputs
+                }
+            }
+        }
+    }
+    flake.sourceInfo = std::make_shared<fetchers::Tree>(std::move(sourceInfo));
+    // ### END
+
 
     auto sOutputs = state.symbols.create("outputs");
 
@@ -787,7 +835,7 @@ static void prim_lockFlake(EvalState & state, const PosIdx pos, Value * * args, 
     std::string flakeRefS(state.forceStringNoCtx(*args[0], pos, "while evaluating the argument passed to builtins.lockFlake"));
     auto flakeRef = parseFlakeRef(flakeRefS, {}, true);
     if (evalSettings.pureEval && !flakeRef.input.isLocked())
-        throw Error("cannot call 'getFlake' on unlocked flake reference '%s', at %s (use --impure to override)", flakeRefS, state.positions[pos]);
+        throw Error("cannot call 'lockFlake' on unlocked flake reference '%s', at %s (use --impure to override)", flakeRefS, state.positions[pos]);
 
     auto lockedFlake = lockFlake(state, flakeRef,
             LockFlags {
