@@ -251,11 +251,12 @@ static Flake getFlake(
             continue;
         }
         if (p.path().filename() == "crystal.nix"){
-            warn("found %s",p.path().string());
-            state.evalFile(p.path(), vInfo2, true); // FIXME: symlink attack
+            /* warn("found %s",p.path().string()); */
+            auto path = CanonPath(p.path().string());
+            state.evalFile(path, vInfo2, true); // FIXME: symlink attack
 
-            expectType(state, nAttrs, vInfo2, state.positions.add({p.path()}, 1, 1));
-            warn("found crystal in %s",p.path().parent_path().filename().string());
+            expectType(state, nAttrs, vInfo2, state.positions.add({path}, 1, 1));
+            /* warn("found crystal in %s",p.path().parent_path().filename().string()); */
             /* flake.inputs[p.path().parent_path().filename().string()] = */
 /* FlakeInput */
 /* { */
@@ -270,7 +271,7 @@ static Flake getFlake(
             if (auto inputs = vInfo2.attrs->get(sInputs)) {
                 auto subInputs = parseFlakeInputs(state, inputs->value, inputs->pos, p.path(), lockRootPath );
                 for (auto sub : subInputs) {
-                    warn("sub %s: %s",sub.first,sub.second.ref->to_string());
+                    /* warn("sub %s: %s",sub.first,sub.second.ref->to_string()); */
                     if (flake.inputs.count(sub.first) != 0 ){
                         throw Error("flake contains duplicate %s inputs",sub.first);
                     }
