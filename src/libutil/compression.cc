@@ -4,13 +4,13 @@
 #include "finally.hh"
 #include "logging.hh"
 
-#include <archive.h>
+/* #include <archive.h> */
 #include <archive_entry.h>
 #include <cstdio>
 #include <cstring>
 
-#include <brotli/decode.h>
-#include <brotli/encode.h>
+/* #include <brotli/decode.h> */
+/* #include <brotli/encode.h> */
 
 #include <iostream>
 
@@ -43,22 +43,23 @@ struct ArchiveDecompressionSource : Source
     ArchiveDecompressionSource(Source & src) : src(src) {}
     ~ArchiveDecompressionSource() override {}
     size_t read(char * data, size_t len) override {
-        struct archive_entry * ae;
-        if (!archive) {
-            archive = std::make_unique<TarArchive>(src, true);
-            this->archive->check(archive_read_next_header(this->archive->archive, &ae),
-                "failed to read header (%s)");
-            if (archive_filter_count(this->archive->archive) < 2) {
-                throw CompressionError("input compression not recognized");
-            }
-        }
-        ssize_t result = archive_read_data(this->archive->archive, data, len);
-        if (result > 0) return result;
-        if (result == 0) {
-            throw EndOfFile("reached end of compressed file");
-        }
-        this->archive->check(result, "failed to read compressed data (%s)");
-        return result;
+        throw("no archive library");
+        /* struct archive_entry * ae; */
+        /* if (!archive) { */
+        /*     archive = std::make_unique<TarArchive>(src, true); */
+        /*     this->archive->check(archive_read_next_header(this->archive->archive, &ae), */
+        /*         "failed to read header (%s)"); */
+        /*     if (archive_filter_count(this->archive->archive) < 2) { */
+        /*         throw CompressionError("input compression not recognized"); */
+        /*     } */
+        /* } */
+        /* ssize_t result = archive_read_data(this->archive->archive, data, len); */
+        /* if (result > 0) return result; */
+        /* if (result == 0) { */
+        /*     throw EndOfFile("reached end of compressed file"); */
+        /* } */
+        /* this->archive->check(result, "failed to read compressed data (%s)"); */
+        /* return result; */
     }
 };
 
@@ -69,54 +70,60 @@ struct ArchiveCompressionSink : CompressionSink
 
     ArchiveCompressionSink(Sink & nextSink, std::string format, bool parallel, int level = COMPRESSION_LEVEL_DEFAULT) : nextSink(nextSink)
     {
-        archive = archive_write_new();
-        if (!archive) throw Error("failed to initialize libarchive");
-        check(archive_write_add_filter_by_name(archive, format.c_str()), "couldn't initialize compression (%s)");
-        check(archive_write_set_format_raw(archive));
-        if (parallel)
-            check(archive_write_set_filter_option(archive, format.c_str(), "threads", "0"));
-        if (level != COMPRESSION_LEVEL_DEFAULT)
-            check(archive_write_set_filter_option(archive, format.c_str(), "compression-level", std::to_string(level).c_str()));
-        // disable internal buffering
-        check(archive_write_set_bytes_per_block(archive, 0));
-        // disable output padding
-        check(archive_write_set_bytes_in_last_block(archive, 1));
-        open();
+        throw("no archive library");
+        /* archive = archive_write_new(); */
+        /* if (!archive) throw Error("failed to initialize libarchive"); */
+        /* check(archive_write_add_filter_by_name(archive, format.c_str()), "couldn't initialize compression (%s)"); */
+        /* check(archive_write_set_format_raw(archive)); */
+        /* if (parallel) */
+        /*     check(archive_write_set_filter_option(archive, format.c_str(), "threads", "0")); */
+        /* if (level != COMPRESSION_LEVEL_DEFAULT) */
+        /*     check(archive_write_set_filter_option(archive, format.c_str(), "compression-level", std::to_string(level).c_str())); */
+        /* // disable internal buffering */
+        /* check(archive_write_set_bytes_per_block(archive, 0)); */
+        /* // disable output padding */
+        /* check(archive_write_set_bytes_in_last_block(archive, 1)); */
+        /* open(); */
     }
 
     ~ArchiveCompressionSink() override
     {
-        if (archive) archive_write_free(archive);
+        throw("no archive library");
+        /* if (archive) archive_write_free(archive); */
     }
 
     void finish() override
     {
         flush();
-        check(archive_write_close(archive));
+        throw("no archive library");
+        /* check(archive_write_close(archive)); */
     }
 
     void check(int err, const std::string & reason = "failed to compress (%s)")
     {
-        if (err == ARCHIVE_EOF)
-            throw EndOfFile("reached end of archive");
-        else if (err != ARCHIVE_OK)
-            throw Error(reason, archive_error_string(this->archive));
+        throw("no archive library");
+        /* if (err == ARCHIVE_EOF) */
+        /*     throw EndOfFile("reached end of archive"); */
+        /* else if (err != ARCHIVE_OK) */
+        /*     throw Error(reason, archive_error_string(this->archive)); */
     }
 
     void writeUnbuffered(std::string_view data) override
     {
-        ssize_t result = archive_write_data(archive, data.data(), data.length());
-        if (result <= 0) check(result);
+        throw("no archive library");
+        /* ssize_t result = archive_write_data(archive, data.data(), data.length()); */
+        /* if (result <= 0) check(result); */
     }
 
 private:
     void open()
     {
-        check(archive_write_open(archive, this, nullptr, ArchiveCompressionSink::callback_write, nullptr));
-        auto ae = archive_entry_new();
-        archive_entry_set_filetype(ae, AE_IFREG);
-        check(archive_write_header(archive, ae));
-        archive_entry_free(ae);
+        throw("no archive library");
+        /* check(archive_write_open(archive, this, nullptr, ArchiveCompressionSink::callback_write, nullptr)); */
+        /* auto ae = archive_entry_new(); */
+        /* archive_entry_set_filetype(ae, AE_IFREG); */
+        /* check(archive_write_header(archive, ae)); */
+        /* archive_entry_free(ae); */
     }
 
     static ssize_t callback_write(struct archive * archive, void * _self, const void * buffer, size_t length)
@@ -142,19 +149,20 @@ struct NoneSink : CompressionSink
 struct BrotliDecompressionSink : ChunkedCompressionSink
 {
     Sink & nextSink;
-    BrotliDecoderState * state;
+    /* BrotliDecoderState * state; */
     bool finished = false;
 
     BrotliDecompressionSink(Sink & nextSink) : nextSink(nextSink)
     {
-        state = BrotliDecoderCreateInstance(nullptr, nullptr, nullptr);
-        if (!state)
-            throw CompressionError("unable to initialize brotli decoder");
+        throw("no brotli library");
+        /* state = BrotliDecoderCreateInstance(nullptr, nullptr, nullptr); */
+        /* if (!state) */
+        /*     throw CompressionError("unable to initialize brotli decoder"); */
     }
 
     ~BrotliDecompressionSink()
     {
-        BrotliDecoderDestroyInstance(state);
+        /* BrotliDecoderDestroyInstance(state); */
     }
 
     void finish() override
@@ -173,11 +181,12 @@ struct BrotliDecompressionSink : ChunkedCompressionSink
         while (!finished && (!data.data() || avail_in)) {
             checkInterrupt();
 
-            if (!BrotliDecoderDecompressStream(state,
-                    &avail_in, &next_in,
-                    &avail_out, &next_out,
-                    nullptr))
-                throw CompressionError("error while decompressing brotli file");
+            throw("no brotli library");
+            /* if (!BrotliDecoderDecompressStream(state, */
+            /*         &avail_in, &next_in, */
+            /*         &avail_out, &next_out, */
+            /*         nullptr)) */
+            /*     throw CompressionError("error while decompressing brotli file"); */
 
             if (avail_out < sizeof(outbuf) || avail_in == 0) {
                 nextSink({(char *) outbuf, sizeof(outbuf) - avail_out});
@@ -185,7 +194,8 @@ struct BrotliDecompressionSink : ChunkedCompressionSink
                 avail_out = sizeof(outbuf);
             }
 
-            finished = BrotliDecoderIsFinished(state);
+            throw("no brotli library");
+            /* finished = BrotliDecoderIsFinished(state); */
         }
     }
 };
@@ -216,19 +226,21 @@ struct BrotliCompressionSink : ChunkedCompressionSink
 {
     Sink & nextSink;
     uint8_t outbuf[BUFSIZ];
-    BrotliEncoderState * state;
+    /* BrotliEncoderState * state; */
     bool finished = false;
 
     BrotliCompressionSink(Sink & nextSink) : nextSink(nextSink)
     {
-        state = BrotliEncoderCreateInstance(nullptr, nullptr, nullptr);
-        if (!state)
-            throw CompressionError("unable to initialise brotli encoder");
+        throw("no brotli library");
+        /* state = BrotliEncoderCreateInstance(nullptr, nullptr, nullptr); */
+        /* if (!state) */
+        /*     throw CompressionError("unable to initialise brotli encoder"); */
     }
 
     ~BrotliCompressionSink()
     {
-        BrotliEncoderDestroyInstance(state);
+        throw("no brotli library");
+        /* BrotliEncoderDestroyInstance(state); */
     }
 
     void finish() override
@@ -247,12 +259,13 @@ struct BrotliCompressionSink : ChunkedCompressionSink
         while (!finished && (!data.data() || avail_in)) {
             checkInterrupt();
 
-            if (!BrotliEncoderCompressStream(state,
-                    data.data() ? BROTLI_OPERATION_PROCESS : BROTLI_OPERATION_FINISH,
-                    &avail_in, &next_in,
-                    &avail_out, &next_out,
-                    nullptr))
-                throw CompressionError("error while compressing brotli compression");
+            throw("no brotli library");
+            /* if (!BrotliEncoderCompressStream(state, */
+            /*         data.data() ? BROTLI_OPERATION_PROCESS : BROTLI_OPERATION_FINISH, */
+            /*         &avail_in, &next_in, */
+            /*         &avail_out, &next_out, */
+            /*         nullptr)) */
+            /*     throw CompressionError("error while compressing brotli compression"); */
 
             if (avail_out < sizeof(outbuf) || avail_in == 0) {
                 nextSink({(const char *) outbuf, sizeof(outbuf) - avail_out});
@@ -260,7 +273,8 @@ struct BrotliCompressionSink : ChunkedCompressionSink
                 avail_out = sizeof(outbuf);
             }
 
-            finished = BrotliEncoderIsFinished(state);
+            throw("no brotli library");
+            /* finished = BrotliEncoderIsFinished(state); */
         }
     }
 };

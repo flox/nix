@@ -77,7 +77,7 @@ ifeq ($(BUILD_SHARED_LIBS), 1)
   ifndef HOST_DARWIN
    ifndef HOST_SOLARIS
     ifndef HOST_FREEBSD
-     GLOBAL_LDFLAGS += -Wl,--no-copy-dt-needed-entries
+     GLOBAL_LDFLAGS += -Wl
     endif
    endif
   endif

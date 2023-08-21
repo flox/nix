@@ -26,6 +26,7 @@ static int rootNr = 0;
 enum OutputKind { okPlain, okXML, okJSON };
 
 
+extern "C" {
 void processExpr(EvalState & state, const Strings & attrPaths,
     bool parseOnly, bool strict, Bindings & autoArgs,
     bool evalOnly, OutputKind output, bool location, Expr * e)
@@ -194,5 +195,46 @@ static int main_nix_instantiate(int argc, char * * argv)
         return 0;
     }
 }
+const char* main_nix_instantiate2(char* input){
+    /* std::cout << "welcome" << std::endl; */
+    auto store = openStore("dummy://");
+    /* std::cout << "openStore" << std::endl; */
+    auto evalStore = store;
+    std::list<std::string> emptyList;
+    auto state = std::make_unique<EvalState>(emptyList, evalStore, store);
+    /* std::cout << "state" << std::endl; */
+        struct MyArgs : LegacyArgs, MixEvalArgs
+        {
+            using LegacyArgs::LegacyArgs;
+        };
+    auto dummyArgs = state->allocBindings(0);
+    Strings attrPaths = {""};
+    Expr *e = state->parseExprFromString(input,state->rootPath(CanonPath::fromCwd()));
+    /* processExpr(*state, attrPaths, false, true, *dummyArgs, */
+    /*     true, okJSON, false, e); */
+    /* std::cout << "parsed" << std::endl; */
+    Value vRoot;
+    state->eval(e, vRoot);
+
+    std::stringstream ss;
+    for (auto & i : attrPaths) {
+        Value & v(*findAlongAttrPath(*state, i, *dummyArgs, vRoot).first);
+        state->forceValue(v, [&]() { return v.determinePos(noPos); });
+
+        NixStringContext context;
+        Value vRes;
+        if (dummyArgs->empty())
+            vRes = v;
+        else
+            state->autoCallFunction(*dummyArgs, v, vRes);
+        printValueAsJSON(*state, true, vRes, v.determinePos(noPos), ss, context);
+        ss << std::endl;
+    }
+    std::string out = ss.str();
+    char * outChar= new char[ss.str().length()];
+    strcpy(outChar,out.c_str());
+    return outChar;
+}
 
 static RegisterLegacyCommand r_nix_instantiate("nix-instantiate", main_nix_instantiate);
+}

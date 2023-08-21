@@ -5,7 +5,7 @@
 #include <cerrno>
 #include <memory>
 
-#include <boost/coroutine2/coroutine.hpp>
+/* #include <boost/coroutine2/coroutine.hpp> */
 
 
 namespace nix {
@@ -157,12 +157,16 @@ size_t StringSource::read(char * data, size_t len)
 struct VirtualStackAllocator {
     StackAllocator *allocator = StackAllocator::defaultAllocator;
 
-    boost::context::stack_context allocate() {
-        return allocator->allocate();
+    /* boost::context::stack_context allocate() { */
+   void* allocate() {
+       throw("no boost context");
+        /* return allocator->allocate(); */
     }
 
-    void deallocate(boost::context::stack_context sctx) {
-        allocator->deallocate(sctx);
+    /* void deallocate(boost::context::stack_context sctx) { */
+    void deallocate(void* sctx) {
+       throw("no boost context");
+        /* allocator->deallocate(sctx); */
     }
 };
 
@@ -170,14 +174,18 @@ struct VirtualStackAllocator {
 /* This class reifies the default boost coroutine stack allocation strategy with
    a virtual interface. */
 class DefaultStackAllocator : public StackAllocator {
-    boost::coroutines2::default_stack stack;
+    /* boost::coroutines2::default_stack stack; */
 
-    boost::context::stack_context allocate() {
-        return stack.allocate();
+   void* allocate() {
+    /* boost::context::stack_context allocate() { */
+       throw("no boost context");
+        /* return stack.allocate(); */
     }
 
-    void deallocate(boost::context::stack_context sctx) {
-        stack.deallocate(sctx);
+    void deallocate(void* sctx) {
+    /* void deallocate(boost::context::stack_context sctx) { */
+       throw("no boost context");
+        /* stack.deallocate(sctx); */
     }
 };
 
@@ -206,10 +214,10 @@ std::unique_ptr<FinishSink> sourceToSink(std::function<void(Source &)> fun)
 {
     struct SourceToSink : FinishSink
     {
-        typedef boost::coroutines2::coroutine<bool> coro_t;
+        /* typedef boost::coroutines2::coroutine<bool> coro_t; */
 
         std::function<void(Source &)> fun;
-        std::optional<coro_t::push_type> coro;
+        /* std::optional<coro_t::push_type> coro; */
 
         SourceToSink(std::function<void(Source &)> fun) : fun(fun)
         {
@@ -219,46 +227,48 @@ std::unique_ptr<FinishSink> sourceToSink(std::function<void(Source &)> fun)
 
         void operator () (std::string_view in) override
         {
-            if (in.empty()) return;
-            cur = in;
+            throw("no coroutines library");
+            /* if (in.empty()) return; */
+            /* cur = in; */
 
-            if (!coro) {
-                CoroutineContext ctx;
-                coro = coro_t::push_type(VirtualStackAllocator{}, [&](coro_t::pull_type & yield) {
-                    LambdaSource source([&](char *out, size_t out_len) {
-                        if (cur.empty()) {
-                            yield();
-                            if (yield.get()) {
-                                return (size_t)0;
-                            }
-                        }
+            /* if (!coro) { */
+            /*     CoroutineContext ctx; */
+            /*     coro = coro_t::push_type(VirtualStackAllocator{}, [&](coro_t::pull_type & yield) { */
+            /*         LambdaSource source([&](char *out, size_t out_len) { */
+            /*             if (cur.empty()) { */
+            /*                 yield(); */
+            /*                 if (yield.get()) { */
+            /*                     return (size_t)0; */
+            /*                 } */
+            /*             } */
 
-                        size_t n = std::min(cur.size(), out_len);
-                        memcpy(out, cur.data(), n);
-                        cur.remove_prefix(n);
-                        return n;
-                    });
-                    fun(source);
-                });
-            }
+            /*             size_t n = std::min(cur.size(), out_len); */
+            /*             memcpy(out, cur.data(), n); */
+            /*             cur.remove_prefix(n); */
+            /*             return n; */
+            /*         }); */
+            /*         fun(source); */
+            /*     }); */
+            /* } */
 
-            if (!*coro) { abort(); }
+            /* if (!*coro) { abort(); } */
 
-            if (!cur.empty()) {
-                CoroutineContext ctx;
-                (*coro)(false);
-            }
+            /* if (!cur.empty()) { */
+            /*     CoroutineContext ctx; */
+            /*     (*coro)(false); */
+            /* } */
         }
 
         void finish() override
         {
-            if (!coro) return;
-            if (!*coro) abort();
-            {
-                CoroutineContext ctx;
-                (*coro)(true);
-            }
-            if (*coro) abort();
+            throw("no coroutines library");
+            /* if (!coro) return; */
+            /* if (!*coro) abort(); */
+            /* { */
+            /*     CoroutineContext ctx; */
+            /*     (*coro)(true); */
+            /* } */
+            /* if (*coro) abort(); */
         }
     };
 
@@ -272,11 +282,11 @@ std::unique_ptr<Source> sinkToSource(
 {
     struct SinkToSource : Source
     {
-        typedef boost::coroutines2::coroutine<std::string> coro_t;
+        /* typedef boost::coroutines2::coroutine<std::string> coro_t; */
 
         std::function<void(Sink &)> fun;
         std::function<void()> eof;
-        std::optional<coro_t::pull_type> coro;
+        /* std::optional<coro_t::pull_type> coro; */
 
         SinkToSource(std::function<void(Sink &)> fun, std::function<void()> eof)
             : fun(fun), eof(eof)
@@ -288,32 +298,33 @@ std::unique_ptr<Source> sinkToSource(
 
         size_t read(char * data, size_t len) override
         {
-            if (!coro) {
-                CoroutineContext ctx;
-                coro = coro_t::pull_type(VirtualStackAllocator{}, [&](coro_t::push_type & yield) {
-                    LambdaSink sink([&](std::string_view data) {
-                        if (!data.empty()) yield(std::string(data));
-                    });
-                    fun(sink);
-                });
-            }
+            throw("no coroutines library");
+            /* if (!coro) { */
+            /*     CoroutineContext ctx; */
+            /*     coro = coro_t::pull_type(VirtualStackAllocator{}, [&](coro_t::push_type & yield) { */
+            /*         LambdaSink sink([&](std::string_view data) { */
+            /*             if (!data.empty()) yield(std::string(data)); */
+            /*         }); */
+            /*         fun(sink); */
+            /*     }); */
+            /* } */
 
-            if (!*coro) { eof(); abort(); }
+            /* if (!*coro) { eof(); abort(); } */
 
-            if (pos == cur.size()) {
-                if (!cur.empty()) {
-                    CoroutineContext ctx;
-                    (*coro)();
-                }
-                cur = coro->get();
-                pos = 0;
-            }
+            /* if (pos == cur.size()) { */
+            /*     if (!cur.empty()) { */
+            /*         CoroutineContext ctx; */
+            /*         (*coro)(); */
+            /*     } */
+            /*     cur = coro->get(); */
+            /*     pos = 0; */
+            /* } */
 
-            auto n = std::min(cur.size() - pos, len);
-            memcpy(data, cur.data() + pos, n);
-            pos += n;
+            /* auto n = std::min(cur.size() - pos, len); */
+            /* memcpy(data, cur.data() + pos, n); */
+            /* pos += n; */
 
-            return n;
+            /* return n; */
         }
     };
 

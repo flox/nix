@@ -34,9 +34,9 @@
 #include <gc/gc.h>
 #include <gc/gc_cpp.h>
 
-#include <boost/coroutine2/coroutine.hpp>
-#include <boost/coroutine2/protected_fixedsize_stack.hpp>
-#include <boost/context/stack_context.hpp>
+/* #include <boost/coroutine2/coroutine.hpp> */
+/* #include <boost/coroutine2/protected_fixedsize_stack.hpp> */
+/* #include <boost/context/stack_context.hpp> */
 
 #endif
 
@@ -291,14 +291,16 @@ class BoehmGCStackAllocator : public StackAllocator {
         // We allocate 8 MB, the default max stack size on NixOS.
         // A smaller stack might be quicker to allocate but reduces the stack
         // depth available for source filter expressions etc.
-        std::max(boost::context::stack_traits::default_size(), static_cast<std::size_t>(8 * 1024 * 1024))
+        // std::max(boost::context::stack_traits::default_size(), static_cast<std::size_t>(8 * 1024 * 1024))
+        static_cast<std::size_t>(8 * 1024 * 1024)
     };
 
     // This is specific to boost::coroutines2::protected_fixedsize_stack.
     // The stack protection page is included in sctx.size, so we have to
     // subtract one page size from the stack size.
     std::size_t pfss_usable_stack_size(boost::context::stack_context &sctx) {
-        return sctx.size - boost::context::stack_traits::page_size();
+        return sctx.size - 1024;
+        /* return sctx.size - boost::context::stack_traits::page_size(); */
     }
 
   public:
@@ -354,7 +356,7 @@ public:
 };
 #endif
 
-static bool gcInitialised = false;
+static bool gcInitialised = true;
 
 void initGC()
 {
@@ -2659,5 +2661,9 @@ EvalSettings evalSettings;
 
 static GlobalConfig::Register rEvalSettings(&evalSettings);
 
+/* extern "C" int evalFiler(const SourcePath & path, Value & v, bool mustBeTrivial = false){ */
+extern "C" int evalFiler(){
+    return 1;
+}
 
 }

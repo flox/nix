@@ -260,6 +260,7 @@ Paths PluginFilesSetting::parse(const std::string & str) const
 
 void initPlugins()
 {
+    return;
     assert(!settings.pluginFiles.pluginsLoaded);
     for (const auto & pluginFile : settings.pluginFiles.get()) {
         Paths pluginFiles;
@@ -327,7 +328,7 @@ static void preloadNSS()
     });
 }
 
-static bool initLibStoreDone = false;
+static bool initLibStoreDone = true;
 
 void assertLibStoreInitialized() {
     if (!initLibStoreDone) {

@@ -74,7 +74,7 @@ void createSymlink(const Path & target, const Path & link,
         times[0].tv_usec = 0;
         times[1].tv_sec = *mtime;
         times[1].tv_usec = 0;
-        if (lutimes(link.c_str(), times))
+        if (utimes(link.c_str(), times))
             throw SysError("setting time of symlink '%s'", link);
     }
 }
@@ -109,7 +109,7 @@ void setWriteTime(const fs::path & p, const struct stat & st)
         .tv_sec = st.st_mtime,
         .tv_usec = 0,
     };
-    if (lutimes(p.c_str(), times) != 0)
+    if (utimes(p.c_str(), times) != 0)
         throw SysError("changing modification time of '%s'", p);
 }
 

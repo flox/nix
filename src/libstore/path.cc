@@ -47,9 +47,10 @@ StorePath StorePath::dummy("ffffffffffffffffffffffffffffffff-x");
 
 StorePath StorePath::random(std::string_view name)
 {
-    Hash hash(htSHA1);
-    randombytes_buf(hash.hash, hash.hashSize);
-    return StorePath(hash, name);
+    throw("no sodium library");
+    /* Hash hash(htSHA1); */
+    /* randombytes_buf(hash.hash, hash.hashSize); */
+    /* return StorePath(hash, name); */
 }
 
 StorePath Store::parseStorePath(std::string_view path) const

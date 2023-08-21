@@ -813,6 +813,8 @@ void ErrorBuilder::debugThrow()
     state.debugThrowLastTrace(ErrorType(info));
 }
 
+/* extern "C" void evalFiler(const SourcePath & path, Value & v, bool mustBeTrivial = false); */
+extern "C" int evalFiler();
 }
 
 #include "eval-inline.hh"

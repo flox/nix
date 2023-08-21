@@ -14,7 +14,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include <curl/curl.h>
+/* #include <curl/curl.h> */
 
 #include <algorithm>
 #include <cmath>
@@ -35,7 +35,8 @@ static GlobalConfig::Register rFileTransferSettings(&fileTransferSettings);
 
 struct curlFileTransfer : public FileTransfer
 {
-    CURLM * curlm = 0;
+    /* throw("no curl library"); */
+    /* CURLM * curlm = 0; */
 
     std::random_device rd;
     std::mt19937 mt19937;
@@ -48,7 +49,8 @@ struct curlFileTransfer : public FileTransfer
         Activity act;
         bool done = false; // whether either the success or failure function has been called
         Callback<FileTransferResult> callback;
-        CURL * req = 0;
+        /* throw("no curl library"); */
+        /* CURL * req = 0; */
         bool active = false; // whether the handle has been added to the multi object
         std::string statusMsg;
 
@@ -64,7 +66,8 @@ struct curlFileTransfer : public FileTransfer
 
         bool acceptRanges = false;
 
-        curl_off_t writtenToSink = 0;
+        /* throw("no curl library"); */
+        /* curl_off_t writtenToSink = 0; */
 
         inline static const std::set<long> successfulStatuses {200, 201, 204, 206, 304, 0 /* other protocol */};
         /* Get the HTTP status code, or 0 for other protocols. */
@@ -72,10 +75,11 @@ struct curlFileTransfer : public FileTransfer
         {
             long httpStatus = 0;
             long protocol = 0;
-            curl_easy_getinfo(req, CURLINFO_PROTOCOL, &protocol);
-            if (protocol == CURLPROTO_HTTP || protocol == CURLPROTO_HTTPS)
-                curl_easy_getinfo(req, CURLINFO_RESPONSE_CODE, &httpStatus);
-            return httpStatus;
+            throw("no curl library");
+            /* curl_easy_getinfo(req, CURLINFO_PROTOCOL, &protocol); */
+            /* if (protocol == CURLPROTO_HTTP || protocol == CURLPROTO_HTTPS) */
+            /*     curl_easy_getinfo(req, CURLINFO_RESPONSE_CODE, &httpStatus); */
+            /* return httpStatus; */
         }
 
         TransferItem(curlFileTransfer & fileTransfer,
@@ -88,47 +92,50 @@ struct curlFileTransfer : public FileTransfer
                 {request.uri}, request.parentAct)
             , callback(std::move(callback))
             , finalSink([this](std::string_view data) {
-                if (errorSink) {
-                    (*errorSink)(data);
-                }
+                throw("no curl library");
+                /* if (errorSink) { */
+                /*     (*errorSink)(data); */
+                /* } */
 
-                if (this->request.dataCallback) {
-                    auto httpStatus = getHTTPStatus();
+                /* if (this->request.dataCallback) { */
+                /*     auto httpStatus = getHTTPStatus(); */
 
-                    /* Only write data to the sink if this is a
-                       successful response. */
-                    if (successfulStatuses.count(httpStatus)) {
-                        writtenToSink += data.size();
-                        this->request.dataCallback(data);
-                    }
-                } else
-                    this->result.data.append(data);
+                /*     /1* Only write data to the sink if this is a */
+                /*        successful response. *1/ */
+                /*     if (successfulStatuses.count(httpStatus)) { */
+                /*         writtenToSink += data.size(); */
+                /*         this->request.dataCallback(data); */
+                /*     } */
+                /* } else */
+                /*     this->result.data.append(data); */
               })
         {
-            requestHeaders = curl_slist_append(requestHeaders, "Accept-Encoding: zstd, br, gzip, deflate, bzip2, xz");
-            if (!request.expectedETag.empty())
-                requestHeaders = curl_slist_append(requestHeaders, ("If-None-Match: " + request.expectedETag).c_str());
-            if (!request.mimeType.empty())
-                requestHeaders = curl_slist_append(requestHeaders, ("Content-Type: " + request.mimeType).c_str());
-            for (auto it = request.headers.begin(); it != request.headers.end(); ++it){
-                requestHeaders = curl_slist_append(requestHeaders, fmt("%s: %s", it->first, it->second).c_str());
-            }
+            throw("no curl library");
+            /* requestHeaders = curl_slist_append(requestHeaders, "Accept-Encoding: zstd, br, gzip, deflate, bzip2, xz"); */
+            /* if (!request.expectedETag.empty()) */
+            /*     requestHeaders = curl_slist_append(requestHeaders, ("If-None-Match: " + request.expectedETag).c_str()); */
+            /* if (!request.mimeType.empty()) */
+            /*     requestHeaders = curl_slist_append(requestHeaders, ("Content-Type: " + request.mimeType).c_str()); */
+            /* for (auto it = request.headers.begin(); it != request.headers.end(); ++it){ */
+            /*     requestHeaders = curl_slist_append(requestHeaders, fmt("%s: %s", it->first, it->second).c_str()); */
+            /* } */
         }
 
         ~TransferItem()
         {
-            if (req) {
-                if (active)
-                    curl_multi_remove_handle(fileTransfer.curlm, req);
-                curl_easy_cleanup(req);
-            }
-            if (requestHeaders) curl_slist_free_all(requestHeaders);
-            try {
-                if (!done)
-                    fail(FileTransferError(Interrupted, {}, "download of '%s' was interrupted", request.uri));
-            } catch (...) {
-                ignoreException();
-            }
+            throw("no curl library");
+            /* if (req) { */
+            /*     if (active) */
+            /*         curl_multi_remove_handle(fileTransfer.curlm, req); */
+            /*     curl_easy_cleanup(req); */
+            /* } */
+            /* if (requestHeaders) curl_slist_free_all(requestHeaders); */
+            /* try { */
+            /*     if (!done) */
+            /*         fail(FileTransferError(Interrupted, {}, "download of '%s' was interrupted", request.uri)); */
+            /* } catch (...) { */
+            /*     ignoreException(); */
+            /* } */
         }
 
         void failEx(std::exception_ptr ex)
@@ -183,42 +190,43 @@ struct curlFileTransfer : public FileTransfer
 
         size_t headerCallback(void * contents, size_t size, size_t nmemb)
         {
-            size_t realSize = size * nmemb;
-            std::string line((char *) contents, realSize);
-            printMsg(lvlVomit, "got header for '%s': %s", request.uri, trim(line));
-            static std::regex statusLine("HTTP/[^ ]+ +[0-9]+(.*)", std::regex::extended | std::regex::icase);
-            std::smatch match;
-            if (std::regex_match(line, match, statusLine)) {
-                result.etag = "";
-                result.data.clear();
-                result.bodySize = 0;
-                statusMsg = trim(match.str(1));
-                acceptRanges = false;
-                encoding = "";
-            } else {
-                auto i = line.find(':');
-                if (i != std::string::npos) {
-                    std::string name = toLower(trim(line.substr(0, i)));
-                    if (name == "etag") {
-                        result.etag = trim(line.substr(i + 1));
-                        /* Hack to work around a GitHub bug: it sends
-                           ETags, but ignores If-None-Match. So if we get
-                           the expected ETag on a 200 response, then shut
-                           down the connection because we already have the
-                           data. */
-                        long httpStatus = 0;
-                        curl_easy_getinfo(req, CURLINFO_RESPONSE_CODE, &httpStatus);
-                        if (result.etag == request.expectedETag && httpStatus == 200) {
-                            debug("shutting down on 200 HTTP response with expected ETag");
-                            return 0;
-                        }
-                    } else if (name == "content-encoding")
-                        encoding = trim(line.substr(i + 1));
-                    else if (name == "accept-ranges" && toLower(trim(line.substr(i + 1))) == "bytes")
-                        acceptRanges = true;
-                }
-            }
-            return realSize;
+            throw("no curl library");
+            /* size_t realSize = size * nmemb; */
+            /* std::string line((char *) contents, realSize); */
+            /* printMsg(lvlVomit, "got header for '%s': %s", request.uri, trim(line)); */
+            /* static std::regex statusLine("HTTP/[^ ]+ +[0-9]+(.*)", std::regex::extended | std::regex::icase); */
+            /* std::smatch match; */
+            /* if (std::regex_match(line, match, statusLine)) { */
+            /*     result.etag = ""; */
+            /*     result.data.clear(); */
+            /*     result.bodySize = 0; */
+            /*     statusMsg = trim(match.str(1)); */
+            /*     acceptRanges = false; */
+            /*     encoding = ""; */
+            /* } else { */
+            /*     auto i = line.find(':'); */
+            /*     if (i != std::string::npos) { */
+            /*         std::string name = toLower(trim(line.substr(0, i))); */
+            /*         if (name == "etag") { */
+            /*             result.etag = trim(line.substr(i + 1)); */
+            /*             /1* Hack to work around a GitHub bug: it sends */
+            /*                ETags, but ignores If-None-Match. So if we get */
+            /*                the expected ETag on a 200 response, then shut */
+            /*                down the connection because we already have the */
+            /*                data. *1/ */
+            /*             long httpStatus = 0; */
+            /*             curl_easy_getinfo(req, CURLINFO_RESPONSE_CODE, &httpStatus); */
+            /*             if (result.etag == request.expectedETag && httpStatus == 200) { */
+            /*                 debug("shutting down on 200 HTTP response with expected ETag"); */
+            /*                 return 0; */
+            /*             } */
+            /*         } else if (name == "content-encoding") */
+            /*             encoding = trim(line.substr(i + 1)); */
+            /*         else if (name == "accept-ranges" && toLower(trim(line.substr(i + 1))) == "bytes") */
+            /*             acceptRanges = true; */
+            /*     } */
+            /* } */
+            /* return realSize; */
         }
 
         static size_t headerCallbackWrapper(void * contents, size_t size, size_t nmemb, void * userp)
@@ -241,12 +249,13 @@ struct curlFileTransfer : public FileTransfer
             return ((TransferItem *) userp)->progressCallback(dltotal, dlnow);
         }
 
-        static int debugCallback(CURL * handle, curl_infotype type, char * data, size_t size, void * userptr)
-        {
-            if (type == CURLINFO_TEXT)
-                vomit("curl: %s", chomp(std::string(data, size)));
-            return 0;
-        }
+        /* throw("no curl library"); */
+        /* static int debugCallback(CURL * handle, curl_infotype type, char * data, size_t size, void * userptr) */
+        /* { */
+        /*     if (type == CURLINFO_TEXT) */
+        /*         vomit("curl: %s", chomp(std::string(data, size))); */
+        /*     return 0; */
+        /* } */
 
         size_t readOffset = 0;
         size_t readCallback(char *buffer, size_t size, size_t nitems)
@@ -267,213 +276,216 @@ struct curlFileTransfer : public FileTransfer
 
         void init()
         {
-            if (!req) req = curl_easy_init();
+            throw("no curl library");
+            /* if (!req) req = curl_easy_init(); */
 
-            curl_easy_reset(req);
+            /* curl_easy_reset(req); */
 
-            if (verbosity >= lvlVomit) {
-                curl_easy_setopt(req, CURLOPT_VERBOSE, 1);
-                curl_easy_setopt(req, CURLOPT_DEBUGFUNCTION, TransferItem::debugCallback);
-            }
+            /* if (verbosity >= lvlVomit) { */
+            /*     curl_easy_setopt(req, CURLOPT_VERBOSE, 1); */
+            /*     curl_easy_setopt(req, CURLOPT_DEBUGFUNCTION, TransferItem::debugCallback); */
+            /* } */
 
-            curl_easy_setopt(req, CURLOPT_URL, request.uri.c_str());
-            curl_easy_setopt(req, CURLOPT_FOLLOWLOCATION, 1L);
-            curl_easy_setopt(req, CURLOPT_MAXREDIRS, 10);
-            curl_easy_setopt(req, CURLOPT_NOSIGNAL, 1);
-            curl_easy_setopt(req, CURLOPT_USERAGENT,
-                ("curl/" LIBCURL_VERSION " Nix/" + nixVersion +
-                    (fileTransferSettings.userAgentSuffix != "" ? " " + fileTransferSettings.userAgentSuffix.get() : "")).c_str());
-            #if LIBCURL_VERSION_NUM >= 0x072b00
-            curl_easy_setopt(req, CURLOPT_PIPEWAIT, 1);
-            #endif
-            #if LIBCURL_VERSION_NUM >= 0x072f00
-            if (fileTransferSettings.enableHttp2)
-                curl_easy_setopt(req, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
-            else
-                curl_easy_setopt(req, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-            #endif
-            curl_easy_setopt(req, CURLOPT_WRITEFUNCTION, TransferItem::writeCallbackWrapper);
-            curl_easy_setopt(req, CURLOPT_WRITEDATA, this);
-            curl_easy_setopt(req, CURLOPT_HEADERFUNCTION, TransferItem::headerCallbackWrapper);
-            curl_easy_setopt(req, CURLOPT_HEADERDATA, this);
+            /* curl_easy_setopt(req, CURLOPT_URL, request.uri.c_str()); */
+            /* curl_easy_setopt(req, CURLOPT_FOLLOWLOCATION, 1L); */
+            /* curl_easy_setopt(req, CURLOPT_MAXREDIRS, 10); */
+            /* curl_easy_setopt(req, CURLOPT_NOSIGNAL, 1); */
+            /* curl_easy_setopt(req, CURLOPT_USERAGENT, */
+            /*     ("curl/" LIBCURL_VERSION " Nix/" + nixVersion + */
+            /*         (fileTransferSettings.userAgentSuffix != "" ? " " + fileTransferSettings.userAgentSuffix.get() : "")).c_str()); */
+            /* #if LIBCURL_VERSION_NUM >= 0x072b00 */
+            /* curl_easy_setopt(req, CURLOPT_PIPEWAIT, 1); */
+            /* #endif */
+            /* #if LIBCURL_VERSION_NUM >= 0x072f00 */
+            /* if (fileTransferSettings.enableHttp2) */
+            /*     curl_easy_setopt(req, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS); */
+            /* else */
+            /*     curl_easy_setopt(req, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1); */
+            /* #endif */
+            /* curl_easy_setopt(req, CURLOPT_WRITEFUNCTION, TransferItem::writeCallbackWrapper); */
+            /* curl_easy_setopt(req, CURLOPT_WRITEDATA, this); */
+            /* curl_easy_setopt(req, CURLOPT_HEADERFUNCTION, TransferItem::headerCallbackWrapper); */
+            /* curl_easy_setopt(req, CURLOPT_HEADERDATA, this); */
 
-            curl_easy_setopt(req, CURLOPT_PROGRESSFUNCTION, progressCallbackWrapper);
-            curl_easy_setopt(req, CURLOPT_PROGRESSDATA, this);
-            curl_easy_setopt(req, CURLOPT_NOPROGRESS, 0);
+            /* curl_easy_setopt(req, CURLOPT_PROGRESSFUNCTION, progressCallbackWrapper); */
+            /* curl_easy_setopt(req, CURLOPT_PROGRESSDATA, this); */
+            /* curl_easy_setopt(req, CURLOPT_NOPROGRESS, 0); */
 
-            curl_easy_setopt(req, CURLOPT_HTTPHEADER, requestHeaders);
+            /* curl_easy_setopt(req, CURLOPT_HTTPHEADER, requestHeaders); */
 
-            if (settings.downloadSpeed.get() > 0)
-                curl_easy_setopt(req, CURLOPT_MAX_RECV_SPEED_LARGE, (curl_off_t) (settings.downloadSpeed.get() * 1024));
+            /* throw("no curl library"); */
+            /* /1* if (settings.downloadSpeed.get() > 0) *1/ */
+            /* /1*     curl_easy_setopt(req, CURLOPT_MAX_RECV_SPEED_LARGE, (curl_off_t) (settings.downloadSpeed.get() * 1024)); *1/ */
 
-            if (request.head)
-                curl_easy_setopt(req, CURLOPT_NOBODY, 1);
+            /* if (request.head) */
+            /*     curl_easy_setopt(req, CURLOPT_NOBODY, 1); */
 
-            if (request.data) {
-                curl_easy_setopt(req, CURLOPT_UPLOAD, 1L);
-                curl_easy_setopt(req, CURLOPT_READFUNCTION, readCallbackWrapper);
-                curl_easy_setopt(req, CURLOPT_READDATA, this);
-                curl_easy_setopt(req, CURLOPT_INFILESIZE_LARGE, (curl_off_t) request.data->length());
-            }
+            /* if (request.data) { */
+            /*     curl_easy_setopt(req, CURLOPT_UPLOAD, 1L); */
+            /*     curl_easy_setopt(req, CURLOPT_READFUNCTION, readCallbackWrapper); */
+            /*     curl_easy_setopt(req, CURLOPT_READDATA, this); */
+            /*     curl_easy_setopt(req, CURLOPT_INFILESIZE_LARGE, (curl_off_t) request.data->length()); */
+            /* } */
 
-            if (request.verifyTLS) {
-                if (settings.caFile != "")
-                    curl_easy_setopt(req, CURLOPT_CAINFO, settings.caFile.get().c_str());
-            } else {
-                curl_easy_setopt(req, CURLOPT_SSL_VERIFYPEER, 0);
-                curl_easy_setopt(req, CURLOPT_SSL_VERIFYHOST, 0);
-            }
+            /* if (request.verifyTLS) { */
+            /*     if (settings.caFile != "") */
+            /*         curl_easy_setopt(req, CURLOPT_CAINFO, settings.caFile.get().c_str()); */
+            /* } else { */
+            /*     curl_easy_setopt(req, CURLOPT_SSL_VERIFYPEER, 0); */
+            /*     curl_easy_setopt(req, CURLOPT_SSL_VERIFYHOST, 0); */
+            /* } */
 
-            curl_easy_setopt(req, CURLOPT_CONNECTTIMEOUT, fileTransferSettings.connectTimeout.get());
+            /* curl_easy_setopt(req, CURLOPT_CONNECTTIMEOUT, fileTransferSettings.connectTimeout.get()); */
 
-            curl_easy_setopt(req, CURLOPT_LOW_SPEED_LIMIT, 1L);
-            curl_easy_setopt(req, CURLOPT_LOW_SPEED_TIME, fileTransferSettings.stalledDownloadTimeout.get());
+            /* curl_easy_setopt(req, CURLOPT_LOW_SPEED_LIMIT, 1L); */
+            /* curl_easy_setopt(req, CURLOPT_LOW_SPEED_TIME, fileTransferSettings.stalledDownloadTimeout.get()); */
 
-            /* If no file exist in the specified path, curl continues to work
-               anyway as if netrc support was disabled. */
-            curl_easy_setopt(req, CURLOPT_NETRC_FILE, settings.netrcFile.get().c_str());
-            curl_easy_setopt(req, CURLOPT_NETRC, CURL_NETRC_OPTIONAL);
+            /* /1* If no file exist in the specified path, curl continues to work */
+            /*    anyway as if netrc support was disabled. *1/ */
+            /* curl_easy_setopt(req, CURLOPT_NETRC_FILE, settings.netrcFile.get().c_str()); */
+            /* curl_easy_setopt(req, CURLOPT_NETRC, CURL_NETRC_OPTIONAL); */
 
-            if (writtenToSink)
-                curl_easy_setopt(req, CURLOPT_RESUME_FROM_LARGE, writtenToSink);
+            /* if (writtenToSink) */
+            /*     curl_easy_setopt(req, CURLOPT_RESUME_FROM_LARGE, writtenToSink); */
 
-            result.data.clear();
-            result.bodySize = 0;
+            /* result.data.clear(); */
+            /* result.bodySize = 0; */
         }
 
-        void finish(CURLcode code)
+        void finish(int code)
         {
-            auto httpStatus = getHTTPStatus();
+            throw("no curl library");
+            /* auto httpStatus = getHTTPStatus(); */
 
-            char * effectiveUriCStr;
-            curl_easy_getinfo(req, CURLINFO_EFFECTIVE_URL, &effectiveUriCStr);
-            if (effectiveUriCStr)
-                result.effectiveUri = effectiveUriCStr;
+            /* char * effectiveUriCStr; */
+            /* curl_easy_getinfo(req, CURLINFO_EFFECTIVE_URL, &effectiveUriCStr); */
+            /* if (effectiveUriCStr) */
+            /*     result.effectiveUri = effectiveUriCStr; */
 
-            debug("finished %s of '%s'; curl status = %d, HTTP status = %d, body = %d bytes",
-                request.verb(), request.uri, code, httpStatus, result.bodySize);
+            /* debug("finished %s of '%s'; curl status = %d, HTTP status = %d, body = %d bytes", */
+            /*     request.verb(), request.uri, code, httpStatus, result.bodySize); */
 
-            if (decompressionSink) {
-                try {
-                    decompressionSink->finish();
-                } catch (...) {
-                    writeException = std::current_exception();
-                }
-            }
+            /* if (decompressionSink) { */
+            /*     try { */
+            /*         decompressionSink->finish(); */
+            /*     } catch (...) { */
+            /*         writeException = std::current_exception(); */
+            /*     } */
+            /* } */
 
-            if (code == CURLE_WRITE_ERROR && result.etag == request.expectedETag) {
-                code = CURLE_OK;
-                httpStatus = 304;
-            }
+            /* if (code == CURLE_WRITE_ERROR && result.etag == request.expectedETag) { */
+            /*     code = CURLE_OK; */
+            /*     httpStatus = 304; */
+            /* } */
 
-            if (writeException)
-                failEx(writeException);
+            /* if (writeException) */
+            /*     failEx(writeException); */
 
-            else if (code == CURLE_OK && successfulStatuses.count(httpStatus))
-            {
-                result.cached = httpStatus == 304;
+            /* else if (code == CURLE_OK && successfulStatuses.count(httpStatus)) */
+            /* { */
+            /*     result.cached = httpStatus == 304; */
 
-                // In 2021, GitHub responds to If-None-Match with 304,
-                // but omits ETag. We just use the If-None-Match etag
-                // since 304 implies they are the same.
-                if (httpStatus == 304 && result.etag == "")
-                    result.etag = request.expectedETag;
+            /*     // In 2021, GitHub responds to If-None-Match with 304, */
+            /*     // but omits ETag. We just use the If-None-Match etag */
+            /*     // since 304 implies they are the same. */
+            /*     if (httpStatus == 304 && result.etag == "") */
+            /*         result.etag = request.expectedETag; */
 
-                act.progress(result.bodySize, result.bodySize);
-                done = true;
-                callback(std::move(result));
-            }
+            /*     act.progress(result.bodySize, result.bodySize); */
+            /*     done = true; */
+            /*     callback(std::move(result)); */
+            /* } */
 
-            else {
-                // We treat most errors as transient, but won't retry when hopeless
-                Error err = Transient;
+            /* else { */
+            /*     // We treat most errors as transient, but won't retry when hopeless */
+            /*     Error err = Transient; */
 
-                if (httpStatus == 404 || httpStatus == 410 || code == CURLE_FILE_COULDNT_READ_FILE) {
-                    // The file is definitely not there
-                    err = NotFound;
-                } else if (httpStatus == 401 || httpStatus == 403 || httpStatus == 407) {
-                    // Don't retry on authentication/authorization failures
-                    err = Forbidden;
-                } else if (httpStatus >= 400 && httpStatus < 500 && httpStatus != 408 && httpStatus != 429) {
-                    // Most 4xx errors are client errors and are probably not worth retrying:
-                    //   * 408 means the server timed out waiting for us, so we try again
-                    //   * 429 means too many requests, so we retry (with a delay)
-                    err = Misc;
-                } else if (httpStatus == 501 || httpStatus == 505 || httpStatus == 511) {
-                    // Let's treat most 5xx (server) errors as transient, except for a handful:
-                    //   * 501 not implemented
-                    //   * 505 http version not supported
-                    //   * 511 we're behind a captive portal
-                    err = Misc;
-                } else {
-                    // Don't bother retrying on certain cURL errors either
+            /*     if (httpStatus == 404 || httpStatus == 410 || code == CURLE_FILE_COULDNT_READ_FILE) { */
+            /*         // The file is definitely not there */
+            /*         err = NotFound; */
+            /*     } else if (httpStatus == 401 || httpStatus == 403 || httpStatus == 407) { */
+            /*         // Don't retry on authentication/authorization failures */
+            /*         err = Forbidden; */
+            /*     } else if (httpStatus >= 400 && httpStatus < 500 && httpStatus != 408 && httpStatus != 429) { */
+            /*         // Most 4xx errors are client errors and are probably not worth retrying: */
+            /*         //   * 408 means the server timed out waiting for us, so we try again */
+            /*         //   * 429 means too many requests, so we retry (with a delay) */
+            /*         err = Misc; */
+            /*     } else if (httpStatus == 501 || httpStatus == 505 || httpStatus == 511) { */
+            /*         // Let's treat most 5xx (server) errors as transient, except for a handful: */
+            /*         //   * 501 not implemented */
+            /*         //   * 505 http version not supported */
+            /*         //   * 511 we're behind a captive portal */
+            /*         err = Misc; */
+            /*     } else { */
+            /*         // Don't bother retrying on certain cURL errors either */
 
-                    // Allow selecting a subset of enum values
-                    #pragma GCC diagnostic push
-                    #pragma GCC diagnostic ignored "-Wswitch-enum"
-                    switch (code) {
-                        case CURLE_FAILED_INIT:
-                        case CURLE_URL_MALFORMAT:
-                        case CURLE_NOT_BUILT_IN:
-                        case CURLE_REMOTE_ACCESS_DENIED:
-                        case CURLE_FILE_COULDNT_READ_FILE:
-                        case CURLE_FUNCTION_NOT_FOUND:
-                        case CURLE_ABORTED_BY_CALLBACK:
-                        case CURLE_BAD_FUNCTION_ARGUMENT:
-                        case CURLE_INTERFACE_FAILED:
-                        case CURLE_UNKNOWN_OPTION:
-                        case CURLE_SSL_CACERT_BADFILE:
-                        case CURLE_TOO_MANY_REDIRECTS:
-                        case CURLE_WRITE_ERROR:
-                        case CURLE_UNSUPPORTED_PROTOCOL:
-                            err = Misc;
-                            break;
-                        default: // Shut up warnings
-                            break;
-                    }
-                    #pragma GCC diagnostic pop
-                }
+            /*         // Allow selecting a subset of enum values */
+            /*         #pragma GCC diagnostic push */
+            /*         #pragma GCC diagnostic ignored "-Wswitch-enum" */
+            /*         switch (code) { */
+            /*             case CURLE_FAILED_INIT: */
+            /*             case CURLE_URL_MALFORMAT: */
+            /*             case CURLE_NOT_BUILT_IN: */
+            /*             case CURLE_REMOTE_ACCESS_DENIED: */
+            /*             case CURLE_FILE_COULDNT_READ_FILE: */
+            /*             case CURLE_FUNCTION_NOT_FOUND: */
+            /*             case CURLE_ABORTED_BY_CALLBACK: */
+            /*             case CURLE_BAD_FUNCTION_ARGUMENT: */
+            /*             case CURLE_INTERFACE_FAILED: */
+            /*             case CURLE_UNKNOWN_OPTION: */
+            /*             case CURLE_SSL_CACERT_BADFILE: */
+            /*             case CURLE_TOO_MANY_REDIRECTS: */
+            /*             case CURLE_WRITE_ERROR: */
+            /*             case CURLE_UNSUPPORTED_PROTOCOL: */
+            /*                 err = Misc; */
+            /*                 break; */
+            /*             default: // Shut up warnings */
+            /*                 break; */
+            /*         } */
+            /*         #pragma GCC diagnostic pop */
+            /*     } */
 
-                attempt++;
+            /*     attempt++; */
 
-                std::optional<std::string> response;
-                if (errorSink)
-                    response = std::move(errorSink->s);
-                auto exc =
-                    code == CURLE_ABORTED_BY_CALLBACK && _isInterrupted
-                    ? FileTransferError(Interrupted, std::move(response), "%s of '%s' was interrupted", request.verb(), request.uri)
-                    : httpStatus != 0
-                    ? FileTransferError(err,
-                        std::move(response),
-                        "unable to %s '%s': HTTP error %d%s",
-                        request.verb(), request.uri, httpStatus,
-                        code == CURLE_OK ? "" : fmt(" (curl error: %s)", curl_easy_strerror(code)))
-                    : FileTransferError(err,
-                        std::move(response),
-                        "unable to %s '%s': %s (%d)",
-                        request.verb(), request.uri, curl_easy_strerror(code), code);
+            /*     std::optional<std::string> response; */
+            /*     if (errorSink) */
+            /*         response = std::move(errorSink->s); */
+            /*     auto exc = */
+            /*         code == CURLE_ABORTED_BY_CALLBACK && _isInterrupted */
+            /*         ? FileTransferError(Interrupted, std::move(response), "%s of '%s' was interrupted", request.verb(), request.uri) */
+            /*         : httpStatus != 0 */
+            /*         ? FileTransferError(err, */
+            /*             std::move(response), */
+            /*             "unable to %s '%s': HTTP error %d%s", */
+            /*             request.verb(), request.uri, httpStatus, */
+            /*             code == CURLE_OK ? "" : fmt(" (curl error: %s)", curl_easy_strerror(code))) */
+            /*         : FileTransferError(err, */
+            /*             std::move(response), */
+            /*             "unable to %s '%s': %s (%d)", */
+            /*             request.verb(), request.uri, curl_easy_strerror(code), code); */
 
-                /* If this is a transient error, then maybe retry the
-                   download after a while. If we're writing to a
-                   sink, we can only retry if the server supports
-                   ranged requests. */
-                if (err == Transient
-                    && attempt < request.tries
-                    && (!this->request.dataCallback
-                        || writtenToSink == 0
-                        || (acceptRanges && encoding.empty())))
-                {
-                    int ms = request.baseRetryTimeMs * std::pow(2.0f, attempt - 1 + std::uniform_real_distribution<>(0.0, 0.5)(fileTransfer.mt19937));
-                    if (writtenToSink)
-                        warn("%s; retrying from offset %d in %d ms", exc.what(), writtenToSink, ms);
-                    else
-                        warn("%s; retrying in %d ms", exc.what(), ms);
-                    embargo = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
-                    fileTransfer.enqueueItem(shared_from_this());
-                }
-                else
-                    fail(std::move(exc));
-            }
+            /*     /1* If this is a transient error, then maybe retry the */
+            /*        download after a while. If we're writing to a */
+            /*        sink, we can only retry if the server supports */
+            /*        ranged requests. *1/ */
+            /*     if (err == Transient */
+            /*         && attempt < request.tries */
+            /*         && (!this->request.dataCallback */
+            /*             || writtenToSink == 0 */
+            /*             || (acceptRanges && encoding.empty()))) */
+            /*     { */
+            /*         int ms = request.baseRetryTimeMs * std::pow(2.0f, attempt - 1 + std::uniform_real_distribution<>(0.0, 0.5)(fileTransfer.mt19937)); */
+            /*         if (writtenToSink) */
+            /*             warn("%s; retrying from offset %d in %d ms", exc.what(), writtenToSink, ms); */
+            /*         else */
+            /*             warn("%s; retrying in %d ms", exc.what(), ms); */
+            /*         embargo = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms); */
+            /*         fileTransfer.enqueueItem(shared_from_this()); */
+            /*     } */
+            /*     else */
+            /*         fail(std::move(exc)); */
+            /* } */
         }
     };
 
@@ -500,32 +512,34 @@ struct curlFileTransfer : public FileTransfer
     curlFileTransfer()
         : mt19937(rd())
     {
-        static std::once_flag globalInit;
-        std::call_once(globalInit, curl_global_init, CURL_GLOBAL_ALL);
+        throw("no curl library");
+        /* static std::once_flag globalInit; */
+        /* std::call_once(globalInit, curl_global_init, CURL_GLOBAL_ALL); */
 
-        curlm = curl_multi_init();
+        /* curlm = curl_multi_init(); */
 
-        #if LIBCURL_VERSION_NUM >= 0x072b00 // Multiplex requires >= 7.43.0
-        curl_multi_setopt(curlm, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
-        #endif
-        #if LIBCURL_VERSION_NUM >= 0x071e00 // Max connections requires >= 7.30.0
-        curl_multi_setopt(curlm, CURLMOPT_MAX_TOTAL_CONNECTIONS,
-            fileTransferSettings.httpConnections.get());
-        #endif
+        /* #if LIBCURL_VERSION_NUM >= 0x072b00 // Multiplex requires >= 7.43.0 */
+        /* curl_multi_setopt(curlm, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX); */
+        /* #endif */
+        /* #if LIBCURL_VERSION_NUM >= 0x071e00 // Max connections requires >= 7.30.0 */
+        /* curl_multi_setopt(curlm, CURLMOPT_MAX_TOTAL_CONNECTIONS, */
+        /*     fileTransferSettings.httpConnections.get()); */
+        /* #endif */
 
-        wakeupPipe.create();
-        fcntl(wakeupPipe.readSide.get(), F_SETFL, O_NONBLOCK);
+        /* wakeupPipe.create(); */
+        /* fcntl(wakeupPipe.readSide.get(), F_SETFL, O_NONBLOCK); */
 
-        workerThread = std::thread([&]() { workerThreadEntry(); });
+        /* workerThread = std::thread([&]() { workerThreadEntry(); }); */
     }
 
     ~curlFileTransfer()
     {
-        stopWorkerThread();
+        throw("no curl library");
+        /* stopWorkerThread(); */
 
-        workerThread.join();
+        /* workerThread.join(); */
 
-        if (curlm) curl_multi_cleanup(curlm);
+        /* if (curlm) curl_multi_cleanup(curlm); */
     }
 
     void stopWorkerThread()
@@ -540,98 +554,99 @@ struct curlFileTransfer : public FileTransfer
 
     void workerThreadMain()
     {
+        throw("no curl library");
         /* Cause this thread to be notified on SIGINT. */
-        auto callback = createInterruptCallback([&]() {
-            stopWorkerThread();
-        });
+        /* auto callback = createInterruptCallback([&]() { */
+        /*     stopWorkerThread(); */
+        /* }); */
 
-        unshareFilesystem();
+        /* unshareFilesystem(); */
 
-        std::map<CURL *, std::shared_ptr<TransferItem>> items;
+        /* std::map<CURL *, std::shared_ptr<TransferItem>> items; */
 
-        bool quit = false;
+        /* bool quit = false; */
 
-        std::chrono::steady_clock::time_point nextWakeup;
+        /* std::chrono::steady_clock::time_point nextWakeup; */
 
-        while (!quit) {
-            checkInterrupt();
+        /* while (!quit) { */
+        /*     checkInterrupt(); */
 
-            /* Let curl do its thing. */
-            int running;
-            CURLMcode mc = curl_multi_perform(curlm, &running);
-            if (mc != CURLM_OK)
-                throw nix::Error("unexpected error from curl_multi_perform(): %s", curl_multi_strerror(mc));
+        /*     /1* Let curl do its thing. *1/ */
+        /*     int running; */
+        /*     CURLMcode mc = curl_multi_perform(curlm, &running); */
+        /*     if (mc != CURLM_OK) */
+        /*         throw nix::Error("unexpected error from curl_multi_perform(): %s", curl_multi_strerror(mc)); */
 
-            /* Set the promises of any finished requests. */
-            CURLMsg * msg;
-            int left;
-            while ((msg = curl_multi_info_read(curlm, &left))) {
-                if (msg->msg == CURLMSG_DONE) {
-                    auto i = items.find(msg->easy_handle);
-                    assert(i != items.end());
-                    i->second->finish(msg->data.result);
-                    curl_multi_remove_handle(curlm, i->second->req);
-                    i->second->active = false;
-                    items.erase(i);
-                }
-            }
+        /*     /1* Set the promises of any finished requests. *1/ */
+        /*     CURLMsg * msg; */
+        /*     int left; */
+        /*     while ((msg = curl_multi_info_read(curlm, &left))) { */
+        /*         if (msg->msg == CURLMSG_DONE) { */
+        /*             auto i = items.find(msg->easy_handle); */
+        /*             assert(i != items.end()); */
+        /*             i->second->finish(msg->data.result); */
+        /*             curl_multi_remove_handle(curlm, i->second->req); */
+        /*             i->second->active = false; */
+        /*             items.erase(i); */
+        /*         } */
+        /*     } */
 
-            /* Wait for activity, including wakeup events. */
-            int numfds = 0;
-            struct curl_waitfd extraFDs[1];
-            extraFDs[0].fd = wakeupPipe.readSide.get();
-            extraFDs[0].events = CURL_WAIT_POLLIN;
-            extraFDs[0].revents = 0;
-            long maxSleepTimeMs = items.empty() ? 10000 : 100;
-            auto sleepTimeMs =
-                nextWakeup != std::chrono::steady_clock::time_point()
-                ? std::max(0, (int) std::chrono::duration_cast<std::chrono::milliseconds>(nextWakeup - std::chrono::steady_clock::now()).count())
-                : maxSleepTimeMs;
-            vomit("download thread waiting for %d ms", sleepTimeMs);
-            mc = curl_multi_wait(curlm, extraFDs, 1, sleepTimeMs, &numfds);
-            if (mc != CURLM_OK)
-                throw nix::Error("unexpected error from curl_multi_wait(): %s", curl_multi_strerror(mc));
+        /*     /1* Wait for activity, including wakeup events. *1/ */
+        /*     int numfds = 0; */
+        /*     struct curl_waitfd extraFDs[1]; */
+        /*     extraFDs[0].fd = wakeupPipe.readSide.get(); */
+        /*     extraFDs[0].events = CURL_WAIT_POLLIN; */
+        /*     extraFDs[0].revents = 0; */
+        /*     long maxSleepTimeMs = items.empty() ? 10000 : 100; */
+        /*     auto sleepTimeMs = */
+        /*         nextWakeup != std::chrono::steady_clock::time_point() */
+        /*         ? std::max(0, (int) std::chrono::duration_cast<std::chrono::milliseconds>(nextWakeup - std::chrono::steady_clock::now()).count()) */
+        /*         : maxSleepTimeMs; */
+        /*     vomit("download thread waiting for %d ms", sleepTimeMs); */
+        /*     mc = curl_multi_wait(curlm, extraFDs, 1, sleepTimeMs, &numfds); */
+        /*     if (mc != CURLM_OK) */
+        /*         throw nix::Error("unexpected error from curl_multi_wait(): %s", curl_multi_strerror(mc)); */
 
-            nextWakeup = std::chrono::steady_clock::time_point();
+        /*     nextWakeup = std::chrono::steady_clock::time_point(); */
 
-            /* Add new curl requests from the incoming requests queue,
-               except for requests that are embargoed (waiting for a
-               retry timeout to expire). */
-            if (extraFDs[0].revents & CURL_WAIT_POLLIN) {
-                char buf[1024];
-                auto res = read(extraFDs[0].fd, buf, sizeof(buf));
-                if (res == -1 && errno != EINTR)
-                    throw SysError("reading curl wakeup socket");
-            }
+        /*     /1* Add new curl requests from the incoming requests queue, */
+        /*        except for requests that are embargoed (waiting for a */
+        /*        retry timeout to expire). *1/ */
+        /*     if (extraFDs[0].revents & CURL_WAIT_POLLIN) { */
+        /*         char buf[1024]; */
+        /*         auto res = read(extraFDs[0].fd, buf, sizeof(buf)); */
+        /*         if (res == -1 && errno != EINTR) */
+        /*             throw SysError("reading curl wakeup socket"); */
+        /*     } */
 
-            std::vector<std::shared_ptr<TransferItem>> incoming;
-            auto now = std::chrono::steady_clock::now();
+        /*     std::vector<std::shared_ptr<TransferItem>> incoming; */
+        /*     auto now = std::chrono::steady_clock::now(); */
 
-            {
-                auto state(state_.lock());
-                while (!state->incoming.empty()) {
-                    auto item = state->incoming.top();
-                    if (item->embargo <= now) {
-                        incoming.push_back(item);
-                        state->incoming.pop();
-                    } else {
-                        if (nextWakeup == std::chrono::steady_clock::time_point()
-                            || item->embargo < nextWakeup)
-                            nextWakeup = item->embargo;
-                        break;
-                    }
-                }
-                quit = state->quit;
-            }
+        /*     { */
+        /*         auto state(state_.lock()); */
+        /*         while (!state->incoming.empty()) { */
+        /*             auto item = state->incoming.top(); */
+        /*             if (item->embargo <= now) { */
+        /*                 incoming.push_back(item); */
+        /*                 state->incoming.pop(); */
+        /*             } else { */
+        /*                 if (nextWakeup == std::chrono::steady_clock::time_point() */
+        /*                     || item->embargo < nextWakeup) */
+        /*                     nextWakeup = item->embargo; */
+        /*                 break; */
+        /*             } */
+        /*         } */
+        /*         quit = state->quit; */
+        /*     } */
 
-            for (auto & item : incoming) {
-                debug("starting %s of %s", item->request.verb(), item->request.uri);
-                item->init();
-                curl_multi_add_handle(curlm, item->req);
-                item->active = true;
-                items[item->req] = item;
-            }
-        }
+        /*     for (auto & item : incoming) { */
+        /*         debug("starting %s of %s", item->request.verb(), item->request.uri); */
+        /*         item->init(); */
+        /*         curl_multi_add_handle(curlm, item->req); */
+        /*         item->active = true; */
+        /*         items[item->req] = item; */
+        /*     } */
+        /* } */
 
         debug("download thread shutting down");
     }

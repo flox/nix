@@ -217,7 +217,7 @@ static Flake getFlake(
         .originalRef = originalRef,
         .resolvedRef = resolvedRef,
         .lockedRef = lockedRef,
-        .sourceInfo = std::make_shared<fetchers::Tree>(sourceInfo)
+        .sourceInfo = std::make_shared<fetchers::Tree>(std::move(sourceInfo))
     };
 
     if (!pathExists(flakeFile))
@@ -281,7 +281,7 @@ static Flake getFlake(
             }
         }
     }
-    flake.sourceInfo = std::make_shared<fetchers::Tree>(std::move(sourceInfo));
+    // flake.sourceInfo = std::make_shared<fetchers::Tree>(std::move(sourceInfo));
     // ### END
 
 

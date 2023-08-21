@@ -543,8 +543,10 @@ struct FramedSink : nix::BufferedSink
  * boost::context doesn't provide a virtual class, so we define our own.
  */
 struct StackAllocator {
-    virtual boost::context::stack_context allocate() = 0;
-    virtual void deallocate(boost::context::stack_context sctx) = 0;
+    virtual void* allocate() = 0;
+    virtual void deallocate(void* sctx) = 0;
+    /* virtual boost::context::stack_context allocate() = 0; */
+    /* virtual void deallocate(boost::context::stack_context sctx) = 0; */
 
     /**
      * The stack allocator to use in sinkToSource and potentially elsewhere.

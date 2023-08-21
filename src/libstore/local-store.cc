@@ -580,7 +580,7 @@ static void canonicaliseTimestampAndPermissions(const Path & path, const struct 
         times[1].tv_sec = mtimeStore;
         times[1].tv_usec = 0;
 #if HAVE_LUTIMES
-        if (lutimes(path.c_str(), times) == -1)
+        if (utimes(path.c_str(), times) == -1)
             if (errno != ENOSYS ||
                 (!S_ISLNK(st.st_mode) && utimes(path.c_str(), times) == -1))
 #else

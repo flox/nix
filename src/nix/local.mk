@@ -1,24 +1,30 @@
-programs += nix
+programs += nix.html
 
-nix_DIR := $(d)
+nix.html_DIR := $(d)
 
-nix_SOURCES := \
-  $(wildcard $(d)/*.cc) \
-  $(wildcard src/build-remote/*.cc) \
-  $(wildcard src/nix-build/*.cc) \
-  $(wildcard src/nix-channel/*.cc) \
-  $(wildcard src/nix-collect-garbage/*.cc) \
-  $(wildcard src/nix-copy-closure/*.cc) \
-  $(wildcard src/nix-daemon/*.cc) \
-  $(wildcard src/nix-env/*.cc) \
-  $(wildcard src/nix-instantiate/*.cc) \
-  $(wildcard src/nix-store/*.cc) \
+nix.html_SOURCES := \
+  # $(wildcard src/libexpr/*.cc)
+  # $(wildcard src/nix-instantiate/*.cc)
+  # $(wildcard $(d)/*.cc) \
+  # $(wildcard src/nix-build/*.cc) \
+  # $(wildcard src/nix-channel/*.cc) \
+  # $(wildcard src/nix-collect-garbage/*.cc) \
+  # $(wildcard src/nix-copy-closure/*.cc) \
+  # $(wildcard src/nix-daemon/*.cc) \
+  # $(wildcard src/nix-env/*.cc) \
+  # $(wildcard src/nix-store/*.cc) \
+  # $(wildcard src/build-remote/*.cc) \
 
-nix_CXXFLAGS += -I src/libutil -I src/libstore -I src/libfetchers -I src/libexpr -I src/libmain -I src/libcmd -I doc/manual
+nix.html_CXXFLAGS += -I src/libutil -I src/libstore -I src/libfetchers -I src/libexpr -I src/libmain -I src/libcmd -I doc/manual
 
-nix_LIBS = libexpr libmain libfetchers libstore libutil libcmd
+nix.html_LIBS = libexpr libmain libfetchers libstore libutil libcmd
 
-nix_LDFLAGS = -pthread $(SODIUM_LIBS) $(EDITLINE_LIBS) $(BOOST_LDFLAGS) $(LOWDOWN_LIBS)
+export EM_PORTS=${PWD}/ports
+export EM_CACHE=${PWD}/cache
+nix.html_LDFLAGS = $(SODIUM_LIBS) $(EDITLINE_LIBS) $(LOWDOWN_LIBS) \
+			  -sERROR_ON_UNDEFINED_SYMBOLS=0 \
+			  -sUSE_SQLITE3=1 \
+			  -sUSE_BOOST_HEADERS=1
 
 $(foreach name, \
   nix-build nix-channel nix-collect-garbage nix-copy-closure nix-daemon nix-env nix-hash nix-instantiate nix-prefetch-url nix-shell nix-store, \

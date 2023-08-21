@@ -2,7 +2,7 @@
 #include "util.hh"
 #include "globals.hh"
 
-#include <sodium.h>
+/* #include <sodium.h> */
 
 namespace nix {
 
@@ -35,58 +35,64 @@ std::string Key::to_string() const
 SecretKey::SecretKey(std::string_view s)
     : Key(s)
 {
-    if (key.size() != crypto_sign_SECRETKEYBYTES)
-        throw Error("secret key is not valid");
+    throw("no sodium library");
+    /* if (key.size() != crypto_sign_SECRETKEYBYTES) */
+    /*     throw Error("secret key is not valid"); */
 }
 
 std::string SecretKey::signDetached(std::string_view data) const
 {
-    unsigned char sig[crypto_sign_BYTES];
-    unsigned long long sigLen;
-    crypto_sign_detached(sig, &sigLen, (unsigned char *) data.data(), data.size(),
-        (unsigned char *) key.data());
-    return name + ":" + base64Encode(std::string((char *) sig, sigLen));
+    throw("no sodium library");
+    /* unsigned char sig[crypto_sign_BYTES]; */
+    /* unsigned long long sigLen; */
+    /* crypto_sign_detached(sig, &sigLen, (unsigned char *) data.data(), data.size(), */
+    /*     (unsigned char *) key.data()); */
+    /* return name + ":" + base64Encode(std::string((char *) sig, sigLen)); */
 }
 
 PublicKey SecretKey::toPublicKey() const
 {
-    unsigned char pk[crypto_sign_PUBLICKEYBYTES];
-    crypto_sign_ed25519_sk_to_pk(pk, (unsigned char *) key.data());
-    return PublicKey(name, std::string((char *) pk, crypto_sign_PUBLICKEYBYTES));
+    throw("no sodium library");
+    /* unsigned char pk[crypto_sign_PUBLICKEYBYTES]; */
+    /* crypto_sign_ed25519_sk_to_pk(pk, (unsigned char *) key.data()); */
+    /* return PublicKey(name, std::string((char *) pk, crypto_sign_PUBLICKEYBYTES)); */
 }
 
 SecretKey SecretKey::generate(std::string_view name)
 {
-    unsigned char pk[crypto_sign_PUBLICKEYBYTES];
-    unsigned char sk[crypto_sign_SECRETKEYBYTES];
-    if (crypto_sign_keypair(pk, sk) != 0)
-        throw Error("key generation failed");
+    throw("no sodium library");
+    /* unsigned char pk[crypto_sign_PUBLICKEYBYTES]; */
+    /* unsigned char sk[crypto_sign_SECRETKEYBYTES]; */
+    /* if (crypto_sign_keypair(pk, sk) != 0) */
+    /*     throw Error("key generation failed"); */
 
-    return SecretKey(name, std::string((char *) sk, crypto_sign_SECRETKEYBYTES));
+    /* return SecretKey(name, std::string((char *) sk, crypto_sign_SECRETKEYBYTES)); */
 }
 
 PublicKey::PublicKey(std::string_view s)
     : Key(s)
 {
-    if (key.size() != crypto_sign_PUBLICKEYBYTES)
-        throw Error("public key is not valid");
+    throw("no sodium library");
+    /* if (key.size() != crypto_sign_PUBLICKEYBYTES) */
+    /*     throw Error("public key is not valid"); */
 }
 
 bool verifyDetached(const std::string & data, const std::string & sig,
     const PublicKeys & publicKeys)
 {
-    auto ss = split(sig);
+    throw("no sodium library");
+    /* auto ss = split(sig); */
 
-    auto key = publicKeys.find(std::string(ss.first));
-    if (key == publicKeys.end()) return false;
+    /* auto key = publicKeys.find(std::string(ss.first)); */
+    /* if (key == publicKeys.end()) return false; */
 
-    auto sig2 = base64Decode(ss.second);
-    if (sig2.size() != crypto_sign_BYTES)
-        throw Error("signature is not valid");
+    /* auto sig2 = base64Decode(ss.second); */
+    /* if (sig2.size() != crypto_sign_BYTES) */
+    /*     throw Error("signature is not valid"); */
 
-    return crypto_sign_verify_detached((unsigned char *) sig2.data(),
-        (unsigned char *) data.data(), data.size(),
-        (unsigned char *) key->second.key.data()) == 0;
+    /* return crypto_sign_verify_detached((unsigned char *) sig2.data(), */
+    /*     (unsigned char *) data.data(), data.size(), */
+    /*     (unsigned char *) key->second.key.data()) == 0; */
 }
 
 PublicKeys getDefaultPublicKeys()

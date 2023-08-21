@@ -91,7 +91,7 @@ static GlobalConfig::Register rSettings(&authorizationSettings);
 
 #ifndef __linux__
 #define SPLICE_F_MOVE 0
-static ssize_t splice(int fd_in, void *off_in, int fd_out, void *off_out, size_t len, unsigned int flags)
+static ssize_t splicer(int fd_in, void *off_in, int fd_out, void *off_out, size_t len, unsigned int flags)
 {
     // We ignore most parameters, we just have them for conformance with the linux syscall
     std::vector<char> buf(8192);
@@ -402,14 +402,14 @@ static void forwardStdioConnection(RemoteStore & store) {
         if (select(nfds, &fds, nullptr, nullptr, nullptr) == -1)
             throw SysError("waiting for data from client or server");
         if (FD_ISSET(from, &fds)) {
-            auto res = splice(from, nullptr, STDOUT_FILENO, nullptr, SSIZE_MAX, SPLICE_F_MOVE);
+            auto res = splicer(from, nullptr, STDOUT_FILENO, nullptr, SSIZE_MAX, SPLICE_F_MOVE);
             if (res == -1)
                 throw SysError("splicing data from daemon socket to stdout");
             else if (res == 0)
                 throw EndOfFile("unexpected EOF from daemon socket");
         }
         if (FD_ISSET(STDIN_FILENO, &fds)) {
-            auto res = splice(STDIN_FILENO, nullptr, to, nullptr, SSIZE_MAX, SPLICE_F_MOVE);
+            auto res = splicer(STDIN_FILENO, nullptr, to, nullptr, SSIZE_MAX, SPLICE_F_MOVE);
             if (res == -1)
                 throw SysError("splicing data from stdin to daemon socket");
             else if (res == 0)

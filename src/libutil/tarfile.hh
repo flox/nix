@@ -2,7 +2,7 @@
 ///@file
 
 #include "serialise.hh"
-#include <archive.h>
+/* #include <archive.h> */
 
 namespace nix {
 

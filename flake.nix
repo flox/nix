@@ -327,7 +327,7 @@
                 in ! lib.any (re: builtins.match re relPath != null) rxs);
               src = origSrc;
             };
-          in currentStdenv.mkDerivation (finalAttrs: {
+          in prev.buildEmscriptenPackage ( {
             name = "nix-${version}";
             inherit version;
 
@@ -337,10 +337,15 @@
             outputs = [ "out" "dev" "doc" ];
 
             nativeBuildInputs = nativeBuildDeps;
-            buildInputs = buildDeps
+            buildInputs = [
+              pkg-config
+              openssl.dev
+            ] ++ buildDeps
               # There have been issues building these dependencies
+              ++ nativeBuildDeps
+              ++ propagatedDeps
               ++ lib.optionals (currentStdenv.hostPlatform == currentStdenv.buildPlatform) awsDeps
-              ++ lib.optionals finalAttrs.doCheck checkDeps;
+              ++ checkDeps;
 
             propagatedBuildInputs = propagatedDeps;
 
@@ -370,8 +375,8 @@
             configureFlags = configureFlags ++
               [ "--sysconfdir=/etc" ] ++
               lib.optional stdenv.hostPlatform.isStatic "--enable-embedded-sandbox-shell" ++
-              [ (lib.enableFeature finalAttrs.doCheck "tests") ] ++
-              lib.optionals finalAttrs.doCheck testConfigureFlags ++
+              [ (lib.enableFeature true "tests") ] ++
+              lib.optionals true testConfigureFlags ++
               lib.optional (!canRunInstalled) "--disable-doc-gen";
 
             enableParallelBuilding = true;
@@ -397,7 +402,7 @@
               ''}
             '';
 
-            doInstallCheck = finalAttrs.doCheck;
+            doInstallCheck = true;
             installCheckFlags = "sysconfdir=$(out)/etc";
             installCheckTarget = "installcheck"; # work around buggy detection in stdenv
 
@@ -473,6 +478,173 @@
       };
 
     in {
+      d = with nixpkgsFor.x86_64-linux.native; rec {
+
+  sqlite-wasm = (pkgs.sqlite.override {
+    stdenv = pkgs.emscriptenStdenv;
+  }).overrideAttrs
+    (old: {
+      nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ pkg-config ];
+      # we need to reset this setting!
+      # env = (old.env or { }) // { NIX_CFLAGS_COMPILE = ""; };
+      dontStrip = true;
+      configureFlags =  [
+      "-DSTDC_HEADERS=1"
+      "-DHAVE_SYS_TYPES_H=1"
+      "-DHAVE_SYS_STAT_H=1"
+      "-DHAVE_STDLIB_H=1"
+      "-DHAVE_STRING_H=1"
+      "-DHAVE_MEMORY_H=1"
+      "-DHAVE_STRINGS_H=1"
+      "-DHAVE_INTTYPES_H=1"
+      "-DHAVE_STDINT_H=1"
+      "-DHAVE_UNISTD_H=1"
+      "-DHAVE_FDATASYNC=1"
+      "-DHAVE_USLEEP=1"
+      "-DHAVE_LOCALTIME_R=1"
+      "-DHAVE_GMTIME_R=1'"
+      "-DHAVE_DECL_STRERROR_R=1"
+      "-DHAVE_STRERROR_R=1"
+      "-DHAVE_POSIX_FALLOCATE=1"
+      "-DSQLITE_OMIT_LOAD_EXTENSION=1"
+      "-DSQLITE_ENABLE_MATH_FUNCTIONS=1"
+      "-DSQLITE_ENABLE_FTS4=1"
+      "-DSQLITE_ENABLE_FTS5=1"
+      "-DSQLITE_ENABLE_RTREE=1"
+      "-DSQLITE_ENABLE_GEOPOLY=1"
+      "-DSQLITE_OMIT_POPEN=1"
+      ];
+      outputs = [ "out" ];
+      seperateDebugInfo = false;
+      checkPhase = ''
+        mkdir $debug
+      '';
+    });
+
+  openssl-wasm = (pkgs.openssl.override {
+    stdenv = pkgs.emscriptenStdenv;
+  }).overrideAttrs
+    (old: {
+      nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ pkg-config ];
+      # we need to reset this setting!
+      # env = (old.env or { }) // { NIX_CFLAGS_COMPILE = ""; };
+      dontStrip = true;
+      # outputs = [ "out" "etc" ];
+      src = let
+          version = "3.0.9";
+          sha256 = "sha256-6xqwR4FHQ2D3fDGKuJ2MWgOrw45j1lpgPKu/GwCh3JA=";
+        in fetchurl {
+        url = "https://www.openssl.org/source/openssl-${version}.tar.gz";
+        inherit sha256;
+      };
+
+      configureScript = "./Configure linux-generic64";
+        # CFLAGS=-march=${stdenv.hostPlatform.gcc.arch}
+      configurePhase = ''
+        HOME=$TMPDIR
+        mkdir -p .emscriptencache
+        export EM_CACHE=$(pwd)/.emscriptencache
+        emconfigure ./Configure linux-generic64 \
+        shared \
+        --prefix=$out \
+        --libdir=lib \
+        --openssldir=etc/ssl \
+        no-tests
+
+        sed -i 's|^CROSS_COMPILE.*$|CROSS_COMPILE=|g' Makefile
+
+
+        rm -rf test/t*
+      '';
+
+      buildPhase = ''
+        emmake make install_sw
+      '';
+      outputs = ["out"];
+      installPhase = ''
+        emmake make install
+        rm -r $out/etc/ssl/misc
+        rm $out/bin/c_rehash
+      '';
+      checkPhase = ''
+        # echo "================= testing zlib using node ================="
+
+        # echo "Compiling a custom test"
+        # set -x
+        # emcc -O2 -s EMULATE_FUNCTION_POINTER_CASTS=1 test/example.c -DZ_SOLO \
+        # -L. libz.a -I . -o example.js
+
+        # echo "Using node to execute the test"
+        # ${pkgs.nodejs}/bin/node ./example.js
+
+        # set +x
+        # if [ $? -ne 0 ]; then
+        #   echo "test failed for some reason"
+        #   exit 1;
+        # else
+        #   echo "it seems to work! very good."
+        # fi
+        # echo "================= /testing zlib using node ================="
+      '';
+
+      # postPatch = pkgs.lib.optionalString pkgs.stdenv.isDarwin ''
+      #   substituteInPlace configure \
+      #     --replace '/usr/bin/libtool' 'ar' \
+      #     --replace 'AR="libtool"' 'AR="ar"' \
+      #     --replace 'ARFLAGS="-o"' 'ARFLAGS="-r"'
+      # '';
+    });
+
+        nix = stdenv.mkDerivation {
+        name = "emscripten-nix";
+        nativeBuildInputs = [ pkg-config autoconf autoreconfHook automake autoconf-archive ];
+        buildInputs = [
+          boost
+          emscripten nodejs autoconf automake pkgconfig perlPackages.DBDSQLite perl perlPackages.WWWCurl  bzip2 zlib libtool bison flex curl git file
+          nlohmann_json
+          libsodium
+          lsof
+          lowdown-nix
+          editline
+          libarchive
+          brotli
+          jq
+          openssl-wasm
+          sqlite-wasm
+        ];
+        # NIX_PREFIX="/nix/store";
+        # NIX_PREFIX=\"$(prefix)\" \
+        # NIX_STORE_DIR=\"$(storedir)\" \
+        # NIX_DATA_DIR=\"$(datadir)\" \
+        # NIX_STATE_DIR=\"$(localstatedir)/nix\" \
+        # NIX_LOG_DIR=\"$(localstatedir)/log/nix\" \
+        # NIX_CONF_DIR=\"$(sysconfdir)/nix\" \
+        # NIX_BIN_DIR=\"$(bindir)\" \
+        # NIX_MAN_DIR=\"$(mandir)\" \
+        src = builtins.path {
+          path = ./.;
+          name = "source";
+          filter = path: type: ! builtins.elem path [ (self.outPath + "/flake.nix")];
+        };
+        configurePhase = ''
+          emconfigure ./configure \
+            --with-boost=$PWD/src/ports/boost_headers \
+            --disable-cpuid \
+            --disable-seccomp-sandboxing \
+            --enable-gc=no \
+            --disable-tests \
+            --prefix=$PWD/outputs/out \
+            --disable-doc-gen
+        '';
+        buildPhase = ''
+          emmake make src/nix-instantiate/nix-instantiate.html
+          mkdir $out
+          cp src/nix-instantiate/*.{wasm,js,html} $out
+        '';
+      };
+    };
+
+
       # A Nixpkgs overlay that overrides the 'nix' and
       # 'nix.perl-bindings' packages.
       overlays.default = overlayFor (p: p.stdenv);
