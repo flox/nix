@@ -515,9 +515,8 @@
       "-DSQLITE_OMIT_POPEN=1"
       ];
       outputs = [ "out" ];
-      seperateDebugInfo = false;
+      separateDebugInfo = false;
       checkPhase = ''
-        mkdir $debug
       '';
     });
 
@@ -546,10 +545,11 @@
         export EM_CACHE=$(pwd)/.emscriptencache
         emconfigure ./Configure linux-generic64 \
         shared \
+        no-tests \
+        no-engine no-legacy no-module no-padlockeng no-ssl-trace no-ocsp no-stdio no-sm2 no-sm3 no-sm4 no-blake2 no-chacha no-poly1305 no-aria no-dtls \
         --prefix=$out \
         --libdir=lib \
-        --openssldir=etc/ssl \
-        no-tests
+        --openssldir=etc/ssl
 
         sed -i 's|^CROSS_COMPILE.*$|CROSS_COMPILE=|g' Makefile
 
@@ -558,14 +558,13 @@
       '';
 
       buildPhase = ''
-        emmake make install_sw
+        emmake make build_sw
       '';
       outputs = ["out"];
       installPhase = ''
-        emmake make install
-        rm -r $out/etc/ssl/misc
-        rm $out/bin/c_rehash
+        emmake make install_sw
       '';
+      separateDebugInfo = false;
       checkPhase = ''
         # echo "================= testing zlib using node ================="
 
@@ -597,10 +596,10 @@
 
         nix = stdenv.mkDerivation {
         name = "emscripten-nix";
-        nativeBuildInputs = [ pkg-config autoconf autoreconfHook automake autoconf-archive ];
+        nativeBuildInputs = [ jq emscripten pkg-config autoconf autoreconfHook automake autoconf-archive ];
         buildInputs = [
           boost
-          emscripten nodejs autoconf automake pkgconfig perlPackages.DBDSQLite perl perlPackages.WWWCurl  bzip2 zlib libtool bison flex curl git file
+          pkgconfig bzip2 zlib libtool bison flex curl git file
           nlohmann_json
           libsodium
           lsof
@@ -608,7 +607,7 @@
           editline
           libarchive
           brotli
-          jq
+          # openssl
           openssl-wasm
           sqlite-wasm
         ];
@@ -626,20 +625,31 @@
           name = "source";
           filter = path: type: ! builtins.elem path [ (self.outPath + "/flake.nix")];
         };
+        # OPENSSL_CFLAGS="-I ${openssl.dev}/include";
+        # OPENSSL_LIBS="-L${openssl-wasm}/lib -lcrypto";
         configurePhase = ''
+          HOME=$TMPDIR
+          mkdir -p cache/sysroot/include/bits
+          mkdir -p cache/sysroot/include/SDL
           emconfigure ./configure \
-            --with-boost=$PWD/src/ports/boost_headers \
+            --with-boost=${boost.dev}/include \
             --disable-cpuid \
             --disable-seccomp-sandboxing \
             --enable-gc=no \
             --disable-tests \
-            --prefix=$PWD/outputs/out \
+            --prefix=$out \
             --disable-doc-gen
+          export EMCC_CFLAGS="$NIX_CFLAGS_COMPILE"
         '';
         buildPhase = ''
-          emmake make src/nix-instantiate/nix-instantiate.html
+          make src/libexpr/eval.o
+          make -j6 src/nix-instantiate/nix-instantiate.html
+        '';
+        installPhase = ''
           mkdir $out
           cp src/nix-instantiate/*.{wasm,js,html} $out
+        '';
+        checkPhase = ''
         '';
       };
     };

@@ -46,7 +46,7 @@ endif
 include mk/lib.mk
 
 GLOBAL_CXXFLAGS += -g -Wall -include config.h -std=c++2a -I src \
-	-isystem /nix/store/9x6jfl84234im3f4gsrl1js3zyqz76jd-nlohmann_json-3.11.2/include \
+	# -isystem /nix/store/9x6jfl84234im3f4gsrl1js3zyqz76jd-nlohmann_json-3.11.2/include \
 		# -isystem /nix/store/hl5lsmyf6alwj91nv8kmg2iz1lbnxym9-curl-7.86.0-dev/include \
 		# -isystem /nix/store/hyxa8plwvgbj16fi2rlvm2sy6idlkab1-libsodium-1.0.18-dev/include \
 		# -isystem /nix/store/ppqyr8qzdswkswcyb7214y9qg8cr7dnn-sqlite-3.39.4-dev/include \

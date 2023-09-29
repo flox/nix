@@ -19,8 +19,8 @@ nix.html_CXXFLAGS += -I src/libutil -I src/libstore -I src/libfetchers -I src/li
 
 nix.html_LIBS = libexpr libmain libfetchers libstore libutil libcmd
 
-export EM_PORTS=${PWD}/ports
-export EM_CACHE=${PWD}/cache
+# export EM_PORTS=${PWD}/ports
+# export EM_CACHE=${PWD}/cache
 nix.html_LDFLAGS = $(SODIUM_LIBS) $(EDITLINE_LIBS) $(LOWDOWN_LIBS) \
 			  -sERROR_ON_UNDEFINED_SYMBOLS=0 \
 			  -sUSE_SQLITE3=1 \
