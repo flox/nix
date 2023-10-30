@@ -36,9 +36,8 @@ nix-instantiate.html_LDFLAGS = \
 	  -sNO_EXIT_RUNTIME=1 \
 	  -sALLOW_MEMORY_GROWTH=1 \
 	  -sEXPORTED_RUNTIME_METHODS=cwrap,ccall,UTF8ToString,ptrToString,allocateUTF8,UTF32ToString \
-	  -sEXPORTED_FUNCTIONS=_processExpr,_main_nix_instantiate2
-	  # -sUSE_SQLITE3=1 \
-	  # -sUSE_BOOST_HEADERS=1 \
+	  -sEXPORTED_FUNCTIONS=_processExpr,_main_nix_instantiate2 \
+	  -sEXPORT_EXCEPTION_HANDLING_HELPERS
 
 src/libexpr/parser-tab.cc src/libexpr/parser-tab.hh: src/libexpr/parser.y
 	$(trace-gen) bison -v -o src/libexpr/parser-tab.cc $< -d

@@ -312,7 +312,7 @@
           # Forward from the previous stage as we don’t want it to pick the lowdown override
           nixUnstable = prev.nixUnstable;
 
-          nix =
+        nix =
           with final;
           with commonDeps {
             inherit pkgs;
@@ -553,7 +553,6 @@
 
         sed -i 's|^CROSS_COMPILE.*$|CROSS_COMPILE=|g' Makefile
 
-
         rm -rf test/t*
       '';
 
@@ -585,21 +584,30 @@
         # fi
         # echo "================= /testing zlib using node ================="
       '';
-
-      # postPatch = pkgs.lib.optionalString pkgs.stdenv.isDarwin ''
-      #   substituteInPlace configure \
-      #     --replace '/usr/bin/libtool' 'ar' \
-      #     --replace 'AR="libtool"' 'AR="ar"' \
-      #     --replace 'ARFLAGS="-o"' 'ARFLAGS="-r"'
-      # '';
     });
 
-        nix = stdenv.mkDerivation {
+      nix = stdenv.mkDerivation {
         name = "emscripten-nix";
-        nativeBuildInputs = [ jq emscripten pkg-config autoconf autoreconfHook automake autoconf-archive ];
+        nativeBuildInputs = [
+          jq
+          emscripten
+          pkg-config
+          autoconf
+          autoreconfHook
+          automake
+          autoconf-archive
+        ];
         buildInputs = [
           boost
-          pkgconfig bzip2 zlib libtool bison flex curl git file
+          pkgconfig
+          bzip2
+          zlib
+          libtool
+          bison
+          flex
+          curl
+          git
+          file
           nlohmann_json
           libsodium
           lsof
@@ -607,28 +615,18 @@
           editline
           libarchive
           brotli
-          # openssl
           openssl-wasm
           sqlite-wasm
         ];
-        # NIX_PREFIX="/nix/store";
-        # NIX_PREFIX=\"$(prefix)\" \
-        # NIX_STORE_DIR=\"$(storedir)\" \
-        # NIX_DATA_DIR=\"$(datadir)\" \
-        # NIX_STATE_DIR=\"$(localstatedir)/nix\" \
-        # NIX_LOG_DIR=\"$(localstatedir)/log/nix\" \
-        # NIX_CONF_DIR=\"$(sysconfdir)/nix\" \
-        # NIX_BIN_DIR=\"$(bindir)\" \
-        # NIX_MAN_DIR=\"$(mandir)\" \
         src = builtins.path {
           path = ./.;
           name = "source";
           filter = path: type: ! builtins.elem path [ (self.outPath + "/flake.nix")];
         };
-        # OPENSSL_CFLAGS="-I ${openssl.dev}/include";
-        # OPENSSL_LIBS="-L${openssl-wasm}/lib -lcrypto";
         configurePhase = ''
           HOME=$TMPDIR
+          mkdir -p .emscriptencache
+          export EM_CACHE=$HOME/.emscriptencache
           mkdir -p cache/sysroot/include/bits
           mkdir -p cache/sysroot/include/SDL
           emconfigure ./configure \
@@ -650,9 +648,40 @@
           cp src/nix-instantiate/*.{wasm,js,html} $out
         '';
         checkPhase = ''
+
+#        try {Module.ccall("main_nix_instantiate2","string",["string"],["let\n c = 2; in { inherit c; c = 2;}"]);} catch (e) { console.log(getExceptionMessage(e).toString()); };
+#        try {Module.ccall("main_nix_instantiate2","string",["string"],["let c = 2; in { inherit c;}"]);} catch (e) { console.log(getExceptionMessage(e).toString()); };
+#        try {Module.ccall("main_nix_instantiate2","string",["string"],["let\n c = 2; in { inherit c; f = builtins.readDir ./.;}"]);} catch (e) { console.log(getExceptionMessage(e).toString()); };
+
         '';
       };
+      nixTestWASM = stdenv.mkDerivation {
+              name = "emscripten-nix-WASM-test";
+              nativeBuildInputs = [
+                nix
+              ];
+              buildInputs = [];
+              src = builtins.path {
+                path = ./.;
+                name = "source";
+                filter = path: type: ! builtins.elem path [ (self.outPath + "/flake.nix")];
+              };
+              configurePhase = ''
+
+              '';
+              buildPhase = ''
+
+              '';
+              installPhase = ''
+
+              '';
+              checkPhase = ''
+              '';
+            };
+
     };
+
+
 
 
       # A Nixpkgs overlay that overrides the 'nix' and

@@ -1,3 +1,7 @@
+# nix-instantiate (emscripten WASM build)
+
+See [README-emscripten.md](README-emscripten.md)
+
 # Nix
 
 [![Open Collective supporters](https://opencollective.com/nixos/tiers/supporter/badge.svg?label=Supporters&color=brightgreen)](https://opencollective.com/nixos)
